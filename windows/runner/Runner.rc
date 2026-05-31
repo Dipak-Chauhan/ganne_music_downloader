@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.ganne" "\0"
-            VALUE "FileDescription", "Ganne Music Downloader" "\0"
+            VALUE "FileDescription", "Ganne" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "ganne_music_downloader" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.ganne. All rights reserved." "\0"
             VALUE "OriginalFilename", "ganne_music_downloader.exe" "\0"
-            VALUE "ProductName", "Ganne Music Downloader" "\0"
+            VALUE "ProductName", "Ganne" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
