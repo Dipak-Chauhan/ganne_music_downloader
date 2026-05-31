@@ -35,6 +35,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   open_filex: ^4.7.0
+  path: ^1.9.0
   google_fonts: ^8.0.2
   file_picker: ^9.2.2
   http: ^1.6.0
@@ -43,17 +44,6 @@ dependencies:
   audiotags: ^1.4.5
   archive: ^4.0.9
   audioplayers: ^6.7.0
-
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
-
-  # The "flutter_lints" package below contains a set of recommended lints to
-  # encourage good coding practices. The lint set provided by the package is
-  # activated in the `analysis_options.yaml` file located at the root of your
-  # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
-  flutter_lints: ^6.0.0
   flutter_riverpod: ^3.3.1
   dio: ^5.9.2
   drift: ^2.32.1
@@ -70,6 +60,17 @@ dev_dependencies:
   shimmer: ^3.0.0
   dynamic_color: ^1.8.1
   json_annotation: ^4.11.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # The "flutter_lints" package below contains a set of recommended lints to
+  # encourage good coding practices. The lint set provided by the package is
+  # activated in the `analysis_options.yaml` file located at the root of your
+  # package. See that file for information about deactivating specific lint
+  # rules and activating additional ones.
+  flutter_lints: ^6.0.0
   build_runner: ^2.13.1
   drift_dev: ^2.32.1
   json_serializable: ^6.13.1

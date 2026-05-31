@@ -71,9 +71,14 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     return 0.0;
   }
 
-  void _showTrackDetails(DownloadTask task, List<DownloadTask> playlist, ColorScheme cs, TextTheme tt) {
+  void _showTrackDetails(
+    DownloadTask task,
+    List<DownloadTask> playlist,
+    ColorScheme cs,
+    TextTheme tt,
+  ) {
     final size = _getFileSizeMB(task.savePath);
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -92,38 +97,100 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(16),
                       child: task.coverUrl.isNotEmpty
-                          ? CachedNetworkImage(imageUrl: task.coverUrl, width: 120, height: 120, fit: BoxFit.cover)
-                          : Container(width: 120, height: 120, color: cs.surfaceContainerHighest, child: Icon(Icons.music_note, size: 48, color: cs.onSurfaceVariant)),
+                          ? CachedNetworkImage(
+                              imageUrl: task.coverUrl,
+                              width: 120,
+                              height: 120,
+                              fit: BoxFit.cover,
+                            )
+                          : Container(
+                              width: 120,
+                              height: 120,
+                              color: cs.surfaceContainerHighest,
+                              child: Icon(
+                                Icons.music_note,
+                                size: 48,
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
                     ),
                     const SizedBox(height: 12),
-                    Text(task.trackTitle, style: tt.titleMedium?.copyWith(fontWeight: FontWeight.bold), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    Text(task.artistName, style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(
+                      task.trackTitle,
+                      style: tt.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      task.artistName,
+                      style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               // Song details list
-              Text('Song Info', style: tt.labelMedium?.copyWith(color: cs.primary, fontWeight: FontWeight.bold)),
+              Text(
+                'Song Info',
+                style: tt.labelMedium?.copyWith(
+                  color: cs.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 8),
               _buildDetailRow('Album', task.albumTitle, cs, tt),
               _buildDetailRow('Genre', task.genre ?? 'Unknown', cs, tt),
-              _buildDetailRow('Year', task.year != null ? task.year.toString() : 'Unknown', cs, tt),
-              _buildDetailRow('Quality', _getQualityLabel(task.quality), cs, tt),
-              if (size > 0) _buildDetailRow('File Size', '${size.toStringAsFixed(2)} MB', cs, tt),
-              _buildDetailRow('Save Path', task.savePath ?? 'Unknown', cs, tt, isPath: true),
-              
+              _buildDetailRow(
+                'Year',
+                task.year != null ? task.year.toString() : 'Unknown',
+                cs,
+                tt,
+              ),
+              _buildDetailRow(
+                'Quality',
+                _getQualityLabel(task.quality),
+                cs,
+                tt,
+              ),
+              if (size > 0)
+                _buildDetailRow(
+                  'File Size',
+                  '${size.toStringAsFixed(2)} MB',
+                  cs,
+                  tt,
+                ),
+              _buildDetailRow(
+                'Save Path',
+                task.savePath ?? 'Unknown',
+                cs,
+                tt,
+                isPath: true,
+              ),
+
               const SizedBox(height: 24),
-              
+
               // Actions
               FilledButton.icon(
                 onPressed: () {
                   Navigator.pop(ctx);
-                  ref.read(audioPlayerProvider.notifier).playTrack(task, playlist);
+                  ref
+                      .read(audioPlayerProvider.notifier)
+                      .playTrack(task, playlist);
                 },
                 icon: const Icon(Icons.play_arrow_rounded),
                 label: const Text('Play In-App'),
-                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
               ),
               const SizedBox(height: 8),
               Row(
@@ -136,14 +203,20 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                           final result = await OpenFilex.open(task.savePath!);
                           if (result.type != ResultType.done && mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Could not open: ${result.message}')),
+                              SnackBar(
+                                content: Text(
+                                  'Could not open: ${result.message}',
+                                ),
+                              ),
                             );
                           }
                         }
                       },
                       icon: const Icon(Icons.open_in_new_rounded),
                       label: const Text('Open External'),
-                      style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 44),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -170,7 +243,13 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value, ColorScheme cs, TextTheme tt, {bool isPath = false}) {
+  Widget _buildDetailRow(
+    String label,
+    String value,
+    ColorScheme cs,
+    TextTheme tt, {
+    bool isPath = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -178,7 +257,13 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         children: [
           SizedBox(
             width: 80,
-            child: Text(label, style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant, fontWeight: FontWeight.w600)),
+            child: Text(
+              label,
+              style: tt.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
           Expanded(
             child: Text(
@@ -198,75 +283,108 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   String _getQualityLabel(String qualityId) {
     switch (qualityId) {
-      case '5': return 'MP3 (320 kbps)';
-      case '6': return 'FLAC (16-Bit / 44.1 kHz)';
-      case '7': return 'FLAC (24-Bit / 96 kHz)';
-      case '27': return 'FLAC (24-Bit / 192 kHz)';
-      default: return 'FLAC Lossless';
+      case '5':
+        return 'MP3 (320 kbps)';
+      case '6':
+        return 'FLAC (16-Bit / 44.1 kHz)';
+      case '7':
+        return 'FLAC (24-Bit / 96 kHz)';
+      case '27':
+        return 'FLAC (24-Bit / 192 kHz)';
+      default:
+        return 'FLAC Lossless';
     }
   }
 
   void _confirmDelete(DownloadTask task) {
     final cs = Theme.of(context).colorScheme;
     final db = ref.read(databaseProvider);
+    bool deleteFromStorage = true;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        icon: Icon(Icons.warning_amber_rounded, color: cs.error, size: 36),
-        title: const Text('Delete Track'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Are you sure you want to remove "${task.trackTitle}"?'),
-            const SizedBox(height: 12),
-            Row(
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            icon: Icon(Icons.delete_forever_rounded, color: cs.error, size: 36),
+            title: const Text('Delete Track'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.folder_delete_outlined, size: 16),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'This will also delete the audio file from your device storage.',
-                    style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12),
+                Text(
+                  'Are you sure you want to remove "${task.trackTitle}"?',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 20),
+                CheckboxListTile(
+                  title: const Text('Also delete file from storage'),
+                  subtitle: Text(
+                    deleteFromStorage
+                        ? 'Audio file will be permanently deleted from device'
+                        : 'Audio file will be kept on your device storage',
+                    style: TextStyle(color: cs.onSurfaceVariant, fontSize: 11),
                   ),
+                  value: deleteFromStorage,
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => deleteFromStorage = val);
+                    }
+                  },
+                  activeColor: cs.error,
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
                 ),
               ],
             ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: cs.error),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              
-              // 1. Delete from disk
-              if (task.savePath != null) {
-                try {
-                  final file = File(task.savePath!);
-                  if (await file.exists()) {
-                    await file.delete();
-                    debugPrint('Deleted file: ${task.savePath}');
-                  }
-                } catch (e) {
-                  debugPrint('Failed to delete file on disk: $e');
-                }
-              }
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: cs.error),
+                onPressed: () async {
+                  Navigator.pop(ctx);
 
-              // 2. Delete from database
-              await db.deleteTask(task.id);
-              
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Deleted "${task.trackTitle}"')),
-                );
-              }
-            },
-            child: Text('Delete Everywhere', style: TextStyle(color: cs.onError)),
-          ),
-        ],
+                  // 1. Delete from disk if requested
+                  if (deleteFromStorage && task.savePath != null) {
+                    try {
+                      final file = File(task.savePath!);
+                      if (await file.exists()) {
+                        await file.delete();
+                        debugPrint('Deleted file: ${task.savePath}');
+                      }
+                    } catch (e) {
+                      debugPrint('Failed to delete file on disk: $e');
+                    }
+                  }
+
+                  // 2. Delete from database
+                  await db.deleteTask(task.id);
+
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          deleteFromStorage
+                              ? 'Deleted "${task.trackTitle}" from library and storage'
+                              : 'Removed "${task.trackTitle}" from library',
+                        ),
+                      ),
+                    );
+                  }
+                },
+                child: Text(
+                  deleteFromStorage
+                      ? 'Delete Everywhere'
+                      : 'Delete from Library',
+                  style: TextStyle(color: cs.onError),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -290,9 +408,14 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   builder: (ctx) => AlertDialog(
                     icon: Icon(Icons.delete_sweep, color: cs.error),
                     title: const Text('Clear completed logs'),
-                    content: const Text('Clear all completed tracks from the list? Files on disk will NOT be deleted.'),
+                    content: const Text(
+                      'Clear all completed tracks from the list? Files on disk will NOT be deleted.',
+                    ),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Cancel'),
+                      ),
                       FilledButton(
                         onPressed: () {
                           db.clearCompleted();
@@ -306,7 +429,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               }
             },
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 'clear', child: Text('Clear completed logs')),
+              PopupMenuItem(
+                value: 'clear',
+                child: Text('Clear completed logs'),
+              ),
             ],
           ),
         ],
@@ -325,11 +451,21 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.library_music_outlined, size: 64, color: cs.outlineVariant),
+                  Icon(
+                    Icons.library_music_outlined,
+                    size: 64,
+                    color: cs.outlineVariant,
+                  ),
                   const SizedBox(height: 16),
-                  Text('Your library is empty', style: tt.titleMedium?.copyWith(color: cs.onSurfaceVariant)),
+                  Text(
+                    'Your library is empty',
+                    style: tt.titleMedium?.copyWith(color: cs.onSurfaceVariant),
+                  ),
                   const SizedBox(height: 4),
-                  Text('Downloaded music will appear here', style: tt.bodyMedium?.copyWith(color: cs.outlineVariant)),
+                  Text(
+                    'Downloaded music will appear here',
+                    style: tt.bodyMedium?.copyWith(color: cs.outlineVariant),
+                  ),
                 ],
               ),
             );
@@ -362,7 +498,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
               // Sorting Segmented control
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
@@ -403,7 +542,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     ? Center(
                         child: Text(
                           'No matching tracks found.',
-                          style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+                          style: tt.bodyLarge?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       )
                     : ListView.builder(
@@ -415,7 +556,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                             margin: const EdgeInsets.symmetric(vertical: 4),
                             child: InkWell(
                               borderRadius: BorderRadius.circular(16),
-                              onTap: () => _showTrackDetails(task, tasks, cs, tt),
+                              onTap: () =>
+                                  _showTrackDetails(task, tasks, cs, tt),
                               child: Padding(
                                 padding: const EdgeInsets.all(12),
                                 child: Row(
@@ -425,19 +567,53 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                       child: task.coverUrl.isNotEmpty
                                           ? CachedNetworkImage(
                                               imageUrl: task.coverUrl,
-                                              width: 52, height: 52, fit: BoxFit.cover,
-                                              placeholder: (_, _a) => Container(width: 52, height: 52, color: cs.surfaceContainerHighest, child: Icon(Icons.music_note, color: cs.onSurfaceVariant)),
+                                              width: 52,
+                                              height: 52,
+                                              fit: BoxFit.cover,
+                                              placeholder: (_, _a) => Container(
+                                                width: 52,
+                                                height: 52,
+                                                color:
+                                                    cs.surfaceContainerHighest,
+                                                child: Icon(
+                                                  Icons.music_note,
+                                                  color: cs.onSurfaceVariant,
+                                                ),
+                                              ),
                                             )
-                                          : Container(width: 52, height: 52, color: cs.surfaceContainerHighest, child: Icon(Icons.music_note, color: cs.onSurfaceVariant)),
+                                          : Container(
+                                              width: 52,
+                                              height: 52,
+                                              color: cs.surfaceContainerHighest,
+                                              child: Icon(
+                                                Icons.music_note,
+                                                color: cs.onSurfaceVariant,
+                                              ),
+                                            ),
                                     ),
                                     const SizedBox(width: 14),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          Text(task.trackTitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                                          Text(
+                                            task.trackTitle,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: tt.titleSmall?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
                                           const SizedBox(height: 2),
-                                          Text('${task.artistName} • ${task.albumTitle}', maxLines: 1, overflow: TextOverflow.ellipsis, style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
+                                          Text(
+                                            '${task.artistName} • ${task.albumTitle}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: tt.bodySmall?.copyWith(
+                                              color: cs.onSurfaceVariant,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -445,9 +621,14 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                     // In-App play trigger button
                                     IconButton.filledTonal(
                                       onPressed: () {
-                                        ref.read(audioPlayerProvider.notifier).playTrack(task, tasks);
+                                        ref
+                                            .read(audioPlayerProvider.notifier)
+                                            .playTrack(task, tasks);
                                       },
-                                      icon: const Icon(Icons.play_arrow_rounded, size: 24),
+                                      icon: const Icon(
+                                        Icons.play_arrow_rounded,
+                                        size: 24,
+                                      ),
                                     ),
                                   ],
                                 ),

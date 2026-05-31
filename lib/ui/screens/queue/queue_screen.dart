@@ -5,7 +5,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../data/local/database.dart';
 import '../../../data/providers/service_providers.dart';
 import '../../../services/download/download_service.dart';
-import '../../widgets/wavy_progress_indicator.dart';
 
 class QueueScreen extends ConsumerStatefulWidget {
   const QueueScreen({super.key});
@@ -68,8 +67,9 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
                     content: const Text('Remove all failed downloads?'),
                     actions: [
                       TextButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Cancel')),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('Cancel'),
+                      ),
                       FilledButton(
                         onPressed: () {
                           db.clearFailed();
@@ -86,11 +86,13 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
             },
             itemBuilder: (_) => const [
               PopupMenuItem(
-                  value: 'clear_failed',
-                  child: Text('Clear all failed')),
+                value: 'clear_failed',
+                child: Text('Clear all failed'),
+              ),
               PopupMenuItem(
-                  value: 'clear_completed',
-                  child: Text('Clear all completed')),
+                value: 'clear_completed',
+                child: Text('Clear all completed'),
+              ),
             ],
           ),
         ],
@@ -103,12 +105,17 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
           }
           if (snapshot.hasError) {
             return Center(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.error_outline, size: 48, color: cs.error),
-                const SizedBox(height: 12),
-                Text('Error: ${snapshot.error}',
-                    style: tt.bodyMedium?.copyWith(color: cs.error)),
-              ]),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.error_outline, size: 48, color: cs.error),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Error: ${snapshot.error}',
+                    style: tt.bodyMedium?.copyWith(color: cs.error),
+                  ),
+                ],
+              ),
             );
           }
 
@@ -116,35 +123,41 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
 
           // Build combined list: zip task at top + db tasks
           final List<Widget> items = [];
-          
+
           // ZIP download card (reactive from stream)
           if (_zipInfo != null) {
             items.add(_ZipProgressCard(info: _zipInfo!));
           }
-          
+
           // DB tasks
           for (final task in dbTasks) {
-            items.add(_QueueItemCard(
-              key: ValueKey(task.id),
-              task: task,
-              db: db,
-            ));
+            items.add(
+              _QueueItemCard(key: ValueKey(task.id), task: task, db: db),
+            );
           }
 
           if (items.isEmpty) {
             return Center(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.cloud_done_outlined,
-                    size: 64, color: cs.outlineVariant),
-                const SizedBox(height: 16),
-                Text('No active downloads',
-                    style: tt.titleMedium
-                        ?.copyWith(color: cs.onSurfaceVariant)),
-                const SizedBox(height: 4),
-                Text('Search and queue music to start',
-                    style: tt.bodyMedium
-                        ?.copyWith(color: cs.outlineVariant)),
-              ]),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.cloud_done_outlined,
+                    size: 64,
+                    color: cs.outlineVariant,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No active downloads',
+                    style: tt.titleMedium?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Search and queue music to start',
+                    style: tt.bodyMedium?.copyWith(color: cs.outlineVariant),
+                  ),
+                ],
+              ),
             );
           }
 
@@ -178,59 +191,101 @@ class _ZipProgressCard extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.all(12),
-            child: Row(children: [
-              // ZIP icon
-              Container(
-                width: 52, height: 52,
-                decoration: BoxDecoration(
-                  color: cs.primaryContainer,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(Icons.folder_zip, color: cs.onPrimaryContainer, size: 28),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      Icon(Icons.archive_outlined, size: 14, color: cs.primary),
-                      const SizedBox(width: 4),
-                      Text('ZIP Archive', style: tt.labelSmall?.copyWith(
-                        color: cs.primary, fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                      )),
-                    ]),
-                    const SizedBox(height: 2),
-                    Text(info.albumTitle, maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 2),
-                    Text(info.artistName, maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant)),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (isComplete)
-                Icon(Icons.check_circle_rounded, color: cs.tertiary, size: 28)
-              else
-                Stack(alignment: Alignment.center, children: [
-                  WavyCircularProgressIndicator(
-                    value: progress,
-                    size: 40, strokeWidth: 3,
-                    color: cs.primary,
-                    trackColor: cs.surfaceContainerHighest,
+            child: Row(
+              children: [
+                // ZIP icon
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer,
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  Text('$percent', style: tt.labelSmall?.copyWith(
-                    fontSize: 9, fontWeight: FontWeight.w700, color: cs.primary,
-                  )),
-                ]),
-            ]),
+                  child: Icon(
+                    Icons.folder_zip,
+                    color: cs.onPrimaryContainer,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.archive_outlined,
+                            size: 14,
+                            color: cs.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'ZIP Archive',
+                            style: tt.labelSmall?.copyWith(
+                              color: cs.primary,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        info.albumTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        info.artistName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (isComplete)
+                  Icon(Icons.check_circle_rounded, color: cs.tertiary, size: 28)
+                else
+                  Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      SizedBox(
+                        width: 40,
+                        height: 40,
+                        child: CircularProgressIndicator(
+                          value: progress,
+                          strokeWidth: 3,
+                          backgroundColor: cs.surfaceContainerHighest,
+                        ),
+                      ),
+                      Text(
+                        '$percent',
+                        style: tt.labelSmall?.copyWith(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          color: cs.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ),
           // Progress bar at bottom
           if (!isComplete)
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(12),
+              ),
               child: LinearProgressIndicator(
                 value: progress,
                 minHeight: 4,
@@ -248,11 +303,7 @@ class _QueueItemCard extends ConsumerStatefulWidget {
   final DownloadTask task;
   final AppDatabase db;
 
-  const _QueueItemCard({
-    super.key,
-    required this.task,
-    required this.db,
-  });
+  const _QueueItemCard({super.key, required this.task, required this.db});
 
   @override
   ConsumerState<_QueueItemCard> createState() => _QueueItemCardState();
@@ -298,12 +349,14 @@ class _QueueItemCardState extends ConsumerState<_QueueItemCard> {
       progress = task.downloadedBytes / task.totalBytes;
     }
 
-    final bool isDownloading = task.status == 'downloading' ||
+    final bool isDownloading =
+        task.status == 'downloading' ||
         (liveProgress != null && liveProgress! > 0 && liveProgress! < 1.0);
-    final bool isCompleted = task.status == 'completed' ||
+    final bool isCompleted =
+        task.status == 'completed' ||
         (liveProgress != null && liveProgress! >= 1.0);
-    final bool isFailed = task.status == 'failed' ||
-        (liveProgress != null && liveProgress! < 0);
+    final bool isFailed =
+        task.status == 'failed' || (liveProgress != null && liveProgress! < 0);
     final bool isPending = task.status == 'pending';
 
     Color statusColor = cs.primary;
@@ -335,7 +388,9 @@ class _QueueItemCardState extends ConsumerState<_QueueItemCard> {
         padding: const EdgeInsets.only(right: 24),
         margin: const EdgeInsets.symmetric(vertical: 4),
         decoration: BoxDecoration(
-            color: cs.errorContainer, borderRadius: BorderRadius.circular(16)),
+          color: cs.errorContainer,
+          borderRadius: BorderRadius.circular(16),
+        ),
         child: Icon(Icons.delete_outline, color: cs.onErrorContainer),
       ),
       onDismissed: (_) => db.deleteTask(task.id),
@@ -345,75 +400,110 @@ class _QueueItemCardState extends ConsumerState<_QueueItemCard> {
           children: [
             Padding(
               padding: const EdgeInsets.all(12),
-              child: Row(children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: task.coverUrl.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: task.coverUrl,
-                          width: 52,
-                          height: 52,
-                          fit: BoxFit.cover,
-                          placeholder: (_, _a) => _placeholder(cs))
-                      : _placeholder(cs),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: task.coverUrl.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: task.coverUrl,
+                            width: 52,
+                            height: 52,
+                            fit: BoxFit.cover,
+                            placeholder: (_, _a) => _placeholder(cs),
+                          )
+                        : _placeholder(cs),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(task.trackTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: tt.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w600)),
+                        Text(
+                          task.trackTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: tt.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         const SizedBox(height: 2),
-                        Text('${task.artistName} • ${task.albumTitle}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: tt.bodySmall
-                                ?.copyWith(color: cs.onSurfaceVariant)),
-                      ]),
-                ),
-                const SizedBox(width: 8),
-                if (isDownloading) ...[
-                  // Live wavy circular progress with percentage
-                  Stack(alignment: Alignment.center, children: [
-                    WavyCircularProgressIndicator(
-                      value: progress,
-                      size: 40,
-                      strokeWidth: 3,
-                      color: cs.primary,
-                      trackColor: cs.surfaceContainerHighest,
+                        Text(
+                          '${task.artistName} • ${task.albumTitle}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
                     ),
-                    Text('${(progress * 100).toInt()}',
-                        style: tt.labelSmall?.copyWith(
+                  ),
+                  const SizedBox(width: 8),
+                  if (isDownloading) ...[
+                    // Live wavy circular progress with percentage
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox(
+                          width: 40,
+                          height: 40,
+                          child: CircularProgressIndicator(
+                            value: progress,
+                            strokeWidth: 3,
+                            backgroundColor: cs.surfaceContainerHighest,
+                          ),
+                        ),
+                        Text(
+                          '${(progress * 100).toInt()}',
+                          style: tt.labelSmall?.copyWith(
                             fontSize: 9,
                             fontWeight: FontWeight.w700,
-                            color: cs.primary)),
-                  ]),
-                  IconButton(
-                    icon: Icon(Icons.close_rounded, size: 18, color: cs.error),
-                    tooltip: 'Cancel',
-                    onPressed: () => ref.read(downloadServiceProvider).cancelDownload(task.trackId),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  ),
-                ] else ...[
-                  Column(children: [
-                    Icon(statusIcon, color: statusColor, size: 24),
-                    const SizedBox(height: 2),
-                    Text(statusLabel,
-                        style: tt.labelSmall?.copyWith(
-                            color: statusColor, fontWeight: FontWeight.w600)),
-                  ]),
+                            color: cs.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: cs.error,
+                      ),
+                      tooltip: 'Cancel',
+                      onPressed: () => ref
+                          .read(downloadServiceProvider)
+                          .cancelDownload(task.trackId),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                    ),
+                  ] else ...[
+                    Column(
+                      children: [
+                        Icon(statusIcon, color: statusColor, size: 24),
+                        const SizedBox(height: 2),
+                        Text(
+                          statusLabel,
+                          style: tt.labelSmall?.copyWith(
+                            color: statusColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
-              ]),
+              ),
             ),
             // M3 Linear progress bar at bottom of card
             if (isDownloading)
               ClipRRect(
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(12),
+                ),
                 child: LinearProgressIndicator(
                   value: progress,
                   minHeight: 4,
@@ -423,7 +513,9 @@ class _QueueItemCardState extends ConsumerState<_QueueItemCard> {
               ),
             if (isPending)
               ClipRRect(
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(12),
+                ),
                 child: LinearProgressIndicator(
                   value: null,
                   minHeight: 4,
@@ -438,10 +530,12 @@ class _QueueItemCardState extends ConsumerState<_QueueItemCard> {
   }
 
   Widget _placeholder(ColorScheme cs) => Container(
-      width: 52,
-      height: 52,
-      decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(10)),
-      child: Icon(Icons.music_note, color: cs.onSurfaceVariant));
+    width: 52,
+    height: 52,
+    decoration: BoxDecoration(
+      color: cs.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Icon(Icons.music_note, color: cs.onSurfaceVariant),
+  );
 }

@@ -6,7 +6,6 @@ import '../../../data/models/qobuz_models.dart';
 import '../../../data/providers/service_providers.dart';
 import '../../../data/providers/settings_provider.dart';
 import '../../../services/download/download_service.dart';
-import '../../widgets/wavy_progress_indicator.dart';
 import '../details/album_detail_screen.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -49,12 +48,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     super.initState();
     _loadSearchHistory();
     _logoController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 400));
-    _logoScale = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.08), weight: 50),
-      TweenSequenceItem(tween: Tween(begin: 1.08, end: 1.0), weight: 50),
-    ]).animate(
-        CurvedAnimation(parent: _logoController, curve: Curves.easeInOut));
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _logoScale =
+        TweenSequence<double>([
+          TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.08), weight: 50),
+          TweenSequenceItem(tween: Tween(begin: 1.08, end: 1.0), weight: 50),
+        ]).animate(
+          CurvedAnimation(parent: _logoController, curve: Curves.easeInOut),
+        );
 
     _scrollController.addListener(_onScroll);
     _searchController.addListener(_onSearchChanged);
@@ -144,8 +147,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
   void _fetchSuggestions(String query) async {
     try {
-      final results =
-          await ref.read(qobuzServiceProvider).search(query, limit: 5);
+      final results = await ref
+          .read(qobuzServiceProvider)
+          .search(query, limit: 5);
       if (mounted && _searchController.text.trim() == query) {
         setState(() {
           _suggestions = results;
@@ -181,20 +185,34 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     _searchFocus.unfocus();
     try {
       final settings = ref.read(appSettingsProvider);
-      var results = await ref.read(qobuzServiceProvider).search(query, limit: 50);
-      
+      var results = await ref
+          .read(qobuzServiceProvider)
+          .search(query, limit: 50);
+
       // Explicit content filter
       if (!settings.allowExplicit) {
         results = SearchResults(
           results.query,
-          results.albums != null 
-            ? AlbumsResult(results.albums!.limit, results.albums!.offset, results.albums!.total, 
-                results.albums!.items?.where((a) => a.parentalWarning != true).toList())
-            : null,
+          results.albums != null
+              ? AlbumsResult(
+                  results.albums!.limit,
+                  results.albums!.offset,
+                  results.albums!.total,
+                  results.albums!.items
+                      ?.where((a) => a.parentalWarning != true)
+                      .toList(),
+                )
+              : null,
           results.tracks != null
-            ? TracksResult(results.tracks!.limit, results.tracks!.offset, results.tracks!.total,
-                results.tracks!.items?.where((t) => t.parentalWarning != true).toList())
-            : null,
+              ? TracksResult(
+                  results.tracks!.limit,
+                  results.tracks!.offset,
+                  results.tracks!.total,
+                  results.tracks!.items
+                      ?.where((t) => t.parentalWarning != true)
+                      .toList(),
+                )
+              : null,
         );
       }
 
@@ -211,27 +229,39 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   }
 
   void _loadMore() async {
-    if (_isLoadingMore || _results == null || _currentCount >= _currentTotal) return;
+    if (_isLoadingMore || _results == null || _currentCount >= _currentTotal)
+      return;
     setState(() => _isLoadingMore = true);
     try {
       final settings = ref.read(appSettingsProvider);
-      var more = await ref.read(qobuzServiceProvider).search(
-          _searchController.text,
-          limit: 50,
-          offset: _currentCount);
-      
+      var more = await ref
+          .read(qobuzServiceProvider)
+          .search(_searchController.text, limit: 50, offset: _currentCount);
+
       // Explicit content filter
       if (!settings.allowExplicit) {
         more = SearchResults(
           more.query,
-          more.albums != null 
-            ? AlbumsResult(more.albums!.limit, more.albums!.offset, more.albums!.total, 
-                more.albums!.items?.where((a) => a.parentalWarning != true).toList())
-            : null,
+          more.albums != null
+              ? AlbumsResult(
+                  more.albums!.limit,
+                  more.albums!.offset,
+                  more.albums!.total,
+                  more.albums!.items
+                      ?.where((a) => a.parentalWarning != true)
+                      .toList(),
+                )
+              : null,
           more.tracks != null
-            ? TracksResult(more.tracks!.limit, more.tracks!.offset, more.tracks!.total,
-                more.tracks!.items?.where((t) => t.parentalWarning != true).toList())
-            : null,
+              ? TracksResult(
+                  more.tracks!.limit,
+                  more.tracks!.offset,
+                  more.tracks!.total,
+                  more.tracks!.items
+                      ?.where((t) => t.parentalWarning != true)
+                      .toList(),
+                )
+              : null,
         );
       }
 
@@ -239,17 +269,27 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         if (_searchField == 'albums' && more.albums?.items != null) {
           final existing = _results!.albums!.items ?? [];
           _results = SearchResults(
-              _results!.query,
-              AlbumsResult(_results!.albums!.limit, _currentCount,
-                  _results!.albums!.total, [...existing, ...more.albums!.items!]),
-              _results!.tracks);
+            _results!.query,
+            AlbumsResult(
+              _results!.albums!.limit,
+              _currentCount,
+              _results!.albums!.total,
+              [...existing, ...more.albums!.items!],
+            ),
+            _results!.tracks,
+          );
         } else if (_searchField == 'tracks' && more.tracks?.items != null) {
           final existing = _results!.tracks!.items ?? [];
           _results = SearchResults(
-              _results!.query,
-              _results!.albums,
-              TracksResult(_results!.tracks!.limit, _currentCount,
-                  _results!.tracks!.total, [...existing, ...more.tracks!.items!]));
+            _results!.query,
+            _results!.albums,
+            TracksResult(
+              _results!.tracks!.limit,
+              _currentCount,
+              _results!.tracks!.total,
+              [...existing, ...more.tracks!.items!],
+            ),
+          );
         }
         _isLoadingMore = false;
       });
@@ -283,17 +323,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   void _downloadTrack(QobuzTrack track) {
     _subscribeToProgress();
     final settings = ref.read(appSettingsProvider);
-    
+
     // Format complex artist string
     final artistNames = track.album?.artists?.map((a) => a.name).toList();
     final artistString = DownloadService.joinArtists(
-      artistNames, 
-      fallback: track.performer?.name ?? track.album?.artist?.name ?? 'Unknown'
+      artistNames,
+      fallback: track.performer?.name ?? track.album?.artist?.name ?? 'Unknown',
     );
-    
+
     final albumArtist = track.album?.artist?.name ?? artistString;
 
-    ref.read(downloadServiceProvider).queueTrack(
+    ref
+        .read(downloadServiceProvider)
+        .queueTrack(
           trackId: track.id,
           trackTitle: track.title,
           albumTitle: track.album?.title ?? 'Unknown Album',
@@ -301,8 +343,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           albumArtist: albumArtist,
           trackVersion: track.version,
           trackNumber: track.trackNumber,
-          year: track.album?.releasedAt != null 
-              ? DateTime.fromMillisecondsSinceEpoch(track.album!.releasedAt! * 1000).year 
+          year: track.album?.releasedAt != null
+              ? DateTime.fromMillisecondsSinceEpoch(
+                  track.album!.releasedAt! * 1000,
+                ).year
               : null,
           coverUrl: track.album?.getCoverLargeUrl() ?? '',
           quality: settings.qualityId,
@@ -326,22 +370,39 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Download Album', style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+              Text(
+                'Download Album',
+                style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
               const SizedBox(height: 4),
-              Text(album.title, style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant), textAlign: TextAlign.center),
+              Text(
+                album.title,
+                style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 20),
               FilledButton.tonalIcon(
-                onPressed: () { Navigator.pop(ctx); _downloadAlbumIndividual(album); },
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _downloadAlbumIndividual(album);
+                },
                 icon: const Icon(Icons.library_music_outlined),
                 label: const Text('Download as individual songs'),
-                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
               ),
               const SizedBox(height: 10),
               OutlinedButton.icon(
-                onPressed: () { Navigator.pop(ctx); _downloadAlbumZip(album); },
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _downloadAlbumZip(album);
+                },
                 icon: const Icon(Icons.archive_outlined),
                 label: const Text('Download as ZIP archive'),
-                style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
               ),
             ],
           ),
@@ -354,8 +415,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     _subscribeToProgress();
     final settings = ref.read(appSettingsProvider);
     try {
-      final data =
-          await ref.read(qobuzServiceProvider).getAlbumInfo(album.id!);
+      final data = await ref.read(qobuzServiceProvider).getAlbumInfo(album.id!);
       if (data.tracks?.items != null) {
         final service = ref.read(downloadServiceProvider);
         for (var track in data.tracks!.items!) {
@@ -369,15 +429,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           );
         }
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
               content: Text(
-                  '${data.tracks!.items!.length} tracks from "${album.title}" queued')));
+                '${data.tracks!.items!.length} tracks from "${album.title}" queued',
+              ),
+            ),
+          );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
       }
     }
   }
@@ -386,11 +451,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     final settings = ref.read(appSettingsProvider);
     try {
       final data = await ref.read(qobuzServiceProvider).getAlbumInfo(album.id!);
-      ref.read(downloadServiceProvider).downloadAlbumAsZip(
-        album: album,
-        fetchedData: data,
-        qualityId: settings.qualityId,
-      );
+      ref
+          .read(downloadServiceProvider)
+          .downloadAlbumAsZip(
+            album: album,
+            fetchedData: data,
+            qualityId: settings.qualityId,
+          );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('ZIP download for "${album.title}" started!')),
@@ -398,14 +465,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
       }
     }
   }
 
   // Calculate suggestion overlay position from SearchBar key
   double get _suggestionsTop {
-    final renderBox = _searchBarKey.currentContext?.findRenderObject() as RenderBox?;
+    final renderBox =
+        _searchBarKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return 170;
     final pos = renderBox.localToGlobal(Offset.zero);
     return pos.dy + renderBox.size.height + 4;
@@ -461,7 +531,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                       focusNode: _searchFocus,
                       onSubmitted: _onSearch,
                       onTap: () {
-                        if (_suggestions != null) setState(() => _showSuggestions = true);
+                        if (_suggestions != null)
+                          setState(() => _showSuggestions = true);
                       },
                       hintText: 'Search albums, tracks...',
                       leading: Padding(
@@ -483,38 +554,49 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                 if (hasResults || _isLoading)
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 4,
+                      ),
                       child: Column(
                         children: [
-                          Row(children: [
-                            FilterChip(
-                              selected: _searchField == 'albums',
-                              avatar: Icon(
-                                _searchField == 'albums' ? Icons.album : Icons.album_outlined,
-                                size: 18,
+                          Row(
+                            children: [
+                              FilterChip(
+                                selected: _searchField == 'albums',
+                                avatar: Icon(
+                                  _searchField == 'albums'
+                                      ? Icons.album
+                                      : Icons.album_outlined,
+                                  size: 18,
+                                ),
+                                label: const Text('Albums'),
+                                onSelected: (_) =>
+                                    setState(() => _searchField = 'albums'),
                               ),
-                              label: const Text('Albums'),
-                              onSelected: (_) =>
-                                  setState(() => _searchField = 'albums'),
-                            ),
-                            const SizedBox(width: 8),
-                            FilterChip(
-                              selected: _searchField == 'tracks',
-                              avatar: Icon(
-                                _searchField == 'tracks' ? Icons.music_note : Icons.music_note_outlined,
-                                size: 18,
+                              const SizedBox(width: 8),
+                              FilterChip(
+                                selected: _searchField == 'tracks',
+                                avatar: Icon(
+                                  _searchField == 'tracks'
+                                      ? Icons.music_note
+                                      : Icons.music_note_outlined,
+                                  size: 18,
+                                ),
+                                label: const Text('Tracks'),
+                                onSelected: (_) =>
+                                    setState(() => _searchField = 'tracks'),
                               ),
-                              label: const Text('Tracks'),
-                              onSelected: (_) =>
-                                  setState(() => _searchField = 'tracks'),
-                            ),
-                            const Spacer(),
-                            if (hasResults)
-                              Text('${_searchField == 'albums' ? _getFilteredAlbums().length : _getFilteredTracks().length} of $_currentTotal',
-                                  style: tt.labelSmall
-                                      ?.copyWith(color: cs.onSurfaceVariant)),
-                          ]),
+                              const Spacer(),
+                              if (hasResults)
+                                Text(
+                                  '${_searchField == 'albums' ? _getFilteredAlbums().length : _getFilteredTracks().length} of $_currentTotal',
+                                  style: tt.labelSmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                ),
+                            ],
+                          ),
                           const SizedBox(height: 6),
                           SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
@@ -522,23 +604,53 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                               children: [
                                 FilterChip(
                                   selected: _hiResOnly,
-                                  avatar: Icon(Icons.high_quality, size: 18, color: _hiResOnly ? cs.onTertiaryContainer : null),
+                                  avatar: Icon(
+                                    Icons.high_quality,
+                                    size: 18,
+                                    color: _hiResOnly
+                                        ? cs.onTertiaryContainer
+                                        : null,
+                                  ),
                                   selectedColor: cs.tertiaryContainer,
                                   label: const Text('Hi-Res Only'),
-                                  onSelected: (val) => setState(() => _hiResOnly = val),
+                                  onSelected: (val) =>
+                                      setState(() => _hiResOnly = val),
                                 ),
                                 const SizedBox(width: 8),
                                 PopupMenuButton<String>(
-                                  onSelected: (val) => setState(() => _searchSortOrder = val),
+                                  onSelected: (val) =>
+                                      setState(() => _searchSortOrder = val),
                                   itemBuilder: (_) => const [
-                                    PopupMenuItem(value: 'default', child: Text('Default Order')),
-                                    PopupMenuItem(value: 'title', child: Text('Sort by Name')),
-                                    PopupMenuItem(value: 'artist', child: Text('Sort by Artist')),
+                                    PopupMenuItem(
+                                      value: 'default',
+                                      child: Text('Default Order'),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'title',
+                                      child: Text('Sort by Name'),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'artist',
+                                      child: Text('Sort by Artist'),
+                                    ),
                                   ],
                                   child: Chip(
-                                    avatar: Icon(_searchSortOrder == 'default' ? Icons.sort : Icons.filter_list, size: 16),
-                                    label: Text(_searchSortOrder == 'default' ? 'Sort' : _searchSortOrder == 'title' ? 'By Name' : 'By Artist'),
-                                    side: BorderSide(color: cs.outlineVariant.withAlpha(80)),
+                                    avatar: Icon(
+                                      _searchSortOrder == 'default'
+                                          ? Icons.sort
+                                          : Icons.filter_list,
+                                      size: 16,
+                                    ),
+                                    label: Text(
+                                      _searchSortOrder == 'default'
+                                          ? 'Sort'
+                                          : _searchSortOrder == 'title'
+                                          ? 'By Name'
+                                          : 'By Artist',
+                                    ),
+                                    side: BorderSide(
+                                      color: cs.outlineVariant.withAlpha(80),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -552,69 +664,106 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                 // ── Body ──
                 if (_isLoading)
                   SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(child: WavyCircularProgressIndicator(size: 48)))
+                    hasScrollBody: false,
+                    child: Center(
+                      child: SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: CircularProgressIndicator(),
+                      ),
+                    ),
+                  )
                 else if (_error != null)
                   SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(
-                          child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.error_outline, size: 48, color: cs.error),
-                        const SizedBox(height: 12),
-                        Padding(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.error_outline, size: 48, color: cs.error),
+                          const SizedBox(height: 12),
+                          Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 32),
-                            child: Text(_error!,
-                                textAlign: TextAlign.center,
-                                style: tt.bodyMedium
-                                    ?.copyWith(color: cs.error))),
-                      ])))
+                            child: Text(
+                              _error!,
+                              textAlign: TextAlign.center,
+                              style: tt.bodyMedium?.copyWith(color: cs.error),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
                 else if (!hasResults)
                   SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.search, size: 64, color: cs.outlineVariant),
-                            const SizedBox(height: 12),
-                            Text('Search for music to get started',
-                                style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant)),
-                            if (_searchHistory.isNotEmpty) ...[
-                              const SizedBox(height: 32),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('Recent Searches', style: tt.labelLarge?.copyWith(fontWeight: FontWeight.bold)),
-                                  TextButton(
-                                    onPressed: () {
-                                      setState(() {
-                                        _searchHistory.clear();
-                                      });
-                                      ref.read(secureStorageProvider).writeKey('search_history', '');
-                                    },
-                                    child: const Text('Clear All'),
+                    hasScrollBody: false,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 16,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.search,
+                            size: 64,
+                            color: cs.outlineVariant,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Search for music to get started',
+                            style: tt.bodyLarge?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                          ),
+                          if (_searchHistory.isNotEmpty) ...[
+                            const SizedBox(height: 32),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Recent Searches',
+                                  style: tt.labelLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                alignment: WrapAlignment.center,
-                                children: _searchHistory.map((item) => InputChip(
-                                  label: Text(item),
+                                ),
+                                TextButton(
                                   onPressed: () {
-                                    _searchController.text = item;
-                                    _onSearch(item);
+                                    setState(() {
+                                      _searchHistory.clear();
+                                    });
+                                    ref
+                                        .read(secureStorageProvider)
+                                        .writeKey('search_history', '');
                                   },
-                                  onDeleted: () => _removeFromHistory(item),
-                                )).toList(),
-                              ),
-                            ],
+                                  child: const Text('Clear All'),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              alignment: WrapAlignment.center,
+                              children: _searchHistory
+                                  .map(
+                                    (item) => InputChip(
+                                      label: Text(item),
+                                      onPressed: () {
+                                        _searchController.text = item;
+                                        _onSearch(item);
+                                      },
+                                      onDeleted: () => _removeFromHistory(item),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
                           ],
-                        ),
-                      ))
+                        ],
+                      ),
+                    ),
+                  )
                 else if (_searchField == 'albums')
                   _buildAlbumsGrid(cs, tt)
                 else
@@ -622,9 +771,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
                 if (_isLoadingMore)
                   SliverToBoxAdapter(
-                      child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Center(child: WavyCircularProgressIndicator(size: 32)))),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Center(
+                        child: SizedBox(
+                          width: 32,
+                          height: 32,
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
 
@@ -666,9 +823,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                   children: [
                     Icon(Icons.bolt, size: 16, color: cs.primary),
                     const SizedBox(width: 6),
-                    Text('Quick Results',
-                        style: tt.labelLarge
-                            ?.copyWith(fontWeight: FontWeight.w700)),
+                    Text(
+                      'Quick Results',
+                      style: tt.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -680,66 +840,93 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Albums',
-                              style: tt.labelMedium?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: cs.primary)),
+                          Text(
+                            'Albums',
+                            style: tt.labelMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: cs.primary,
+                            ),
+                          ),
                           const SizedBox(height: 6),
-                          ...albums.take(5).map((album) => InkWell(
-                                borderRadius: BorderRadius.circular(8),
-                                onTap: () {
-                                  setState(() => _showSuggestions = false);
-                                  _searchFocus.unfocus();
-                                  Navigator.of(context).push(
+                          ...albums
+                              .take(5)
+                              .map(
+                                (album) => InkWell(
+                                  borderRadius: BorderRadius.circular(8),
+                                  onTap: () {
+                                    setState(() => _showSuggestions = false);
+                                    _searchFocus.unfocus();
+                                    Navigator.of(context).push(
                                       MaterialPageRoute(
-                                          builder: (_) =>
-                                              AlbumDetailScreen(album: album)));
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 5, horizontal: 4),
-                                  child: Text(album.title,
+                                        builder: (_) =>
+                                            AlbumDetailScreen(album: album),
+                                      ),
+                                    );
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 5,
+                                      horizontal: 4,
+                                    ),
+                                    child: Text(
+                                      album.title,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: tt.bodySmall
-                                          ?.copyWith(color: cs.onSurface)),
+                                      style: tt.bodySmall?.copyWith(
+                                        color: cs.onSurface,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              )),
+                              ),
                         ],
                       ),
                     ),
                     Container(
-                        width: 1,
-                        height: 100,
-                        color: cs.outlineVariant.withAlpha(80)),
+                      width: 1,
+                      height: 100,
+                      color: cs.outlineVariant.withAlpha(80),
+                    ),
                     const SizedBox(width: 12),
                     // Tracks column
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Tracks',
-                              style: tt.labelMedium?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: cs.tertiary)),
+                          Text(
+                            'Tracks',
+                            style: tt.labelMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: cs.tertiary,
+                            ),
+                          ),
                           const SizedBox(height: 6),
-                          ...tracks.take(5).map((track) => InkWell(
-                                borderRadius: BorderRadius.circular(8),
-                                onTap: () {
-                                  setState(() => _showSuggestions = false);
-                                  _searchFocus.unfocus();
-                                  _downloadTrack(track);
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 5, horizontal: 4),
-                                  child: Text(track.title,
+                          ...tracks
+                              .take(5)
+                              .map(
+                                (track) => InkWell(
+                                  borderRadius: BorderRadius.circular(8),
+                                  onTap: () {
+                                    setState(() => _showSuggestions = false);
+                                    _searchFocus.unfocus();
+                                    _downloadTrack(track);
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 5,
+                                      horizontal: 4,
+                                    ),
+                                    child: Text(
+                                      track.title,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: tt.bodySmall
-                                          ?.copyWith(color: cs.onSurface)),
+                                      style: tt.bodySmall?.copyWith(
+                                        color: cs.onSurface,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              )),
+                              ),
                         ],
                       ),
                     ),
@@ -759,9 +946,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       list = list.where((a) => a.hires == true).toList();
     }
     if (_searchSortOrder == 'title') {
-      list = List<QobuzAlbum>.from(list)..sort((a, b) => (a.title).compareTo(b.title));
+      list = List<QobuzAlbum>.from(list)
+        ..sort((a, b) => (a.title).compareTo(b.title));
     } else if (_searchSortOrder == 'artist') {
-      list = List<QobuzAlbum>.from(list)..sort((a, b) => (a.artist?.name ?? '').compareTo(b.artist?.name ?? ''));
+      list = List<QobuzAlbum>.from(
+        list,
+      )..sort((a, b) => (a.artist?.name ?? '').compareTo(b.artist?.name ?? ''));
     }
     return list;
   }
@@ -771,32 +961,37 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     final albums = _getFilteredAlbums();
     if (albums.isEmpty) {
       return SliverFillRemaining(
-          hasScrollBody: false,
-          child: Center(
-              child: Text('No albums found.',
-                  style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant))));
+        hasScrollBody: false,
+        child: Center(
+          child: Text(
+            'No albums found.',
+            style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ),
+      );
     }
     return SliverPadding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
       sliver: SliverGrid(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.75,
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10),
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final album = albums[index];
-            return _AlbumCard(
-              album: album,
-              formatYear: _formatYear,
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => AlbumDetailScreen(album: album))),
-              onDownload: () => _showAlbumDownloadOptions(album),
-            );
-          },
-          childCount: albums.length,
+          crossAxisCount: 2,
+          childAspectRatio: 0.75,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
         ),
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final album = albums[index];
+          return _AlbumCard(
+            album: album,
+            formatYear: _formatYear,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => AlbumDetailScreen(album: album),
+              ),
+            ),
+            onDownload: () => _showAlbumDownloadOptions(album),
+          );
+        }, childCount: albums.length),
       ),
     );
   }
@@ -807,9 +1002,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       list = list.where((t) => t.hires == true).toList();
     }
     if (_searchSortOrder == 'title') {
-      list = List<QobuzTrack>.from(list)..sort((a, b) => (a.title).compareTo(b.title));
+      list = List<QobuzTrack>.from(list)
+        ..sort((a, b) => (a.title).compareTo(b.title));
     } else if (_searchSortOrder == 'artist') {
-      list = List<QobuzTrack>.from(list)..sort((a, b) => (a.performer?.name ?? a.album?.artist?.name ?? '').compareTo(b.performer?.name ?? b.album?.artist?.name ?? ''));
+      list = List<QobuzTrack>.from(list)
+        ..sort(
+          (a, b) => (a.performer?.name ?? a.album?.artist?.name ?? '')
+              .compareTo(b.performer?.name ?? b.album?.artist?.name ?? ''),
+        );
     }
     return list;
   }
@@ -819,96 +1019,123 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     final tracks = _getFilteredTracks();
     if (tracks.isEmpty) {
       return SliverFillRemaining(
-          hasScrollBody: false,
-          child: Center(
-              child: Text('No tracks found.',
-                  style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant))));
+        hasScrollBody: false,
+        child: Center(
+          child: Text(
+            'No tracks found.',
+            style: tt.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+          ),
+        ),
+      );
     }
     return SliverPadding(
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 24),
       sliver: SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (context, index) {
-            final track = tracks[index];
-            final coverUrl = track.album?.getCoverLargeUrl() ?? '';
-            final progress = _downloadProgress[track.id];
-            final isDownloading =
-                progress != null && progress >= 0 && progress < 1.0;
-            final isCompleted = progress != null && progress >= 1.0;
-            final isFailed = progress != null && progress < 0;
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final track = tracks[index];
+          final coverUrl = track.album?.getCoverLargeUrl() ?? '';
+          final progress = _downloadProgress[track.id];
+          final isDownloading =
+              progress != null && progress >= 0 && progress < 1.0;
+          final isCompleted = progress != null && progress >= 1.0;
+          final isFailed = progress != null && progress < 0;
 
-            return Card(
-              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Column(children: [
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Column(
+              children: [
                 InkWell(
                   borderRadius: BorderRadius.circular(16),
                   onTap: () {
                     if (track.album != null) {
-                      Navigator.of(context).push(MaterialPageRoute(
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
                           builder: (_) =>
-                              AlbumDetailScreen(album: track.album!)));
+                              AlbumDetailScreen(album: track.album!),
+                        ),
+                      );
                     }
                   },
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
-                    child: Row(children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: coverUrl.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: coverUrl,
-                                width: 52,
-                                height: 52,
-                                fit: BoxFit.cover,
-                                placeholder: (_, _a) =>
-                                    _CoverPlaceholder(cs: cs))
-                            : _CoverPlaceholder(cs: cs),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: coverUrl.isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: coverUrl,
+                                  width: 52,
+                                  height: 52,
+                                  fit: BoxFit.cover,
+                                  placeholder: (_, _a) =>
+                                      _CoverPlaceholder(cs: cs),
+                                )
+                              : _CoverPlaceholder(cs: cs),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
                           child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                            Text(track.title,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                track.title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: tt.titleSmall
-                                    ?.copyWith(fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 2),
-                            Text(
+                                style: tt.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
                                 '${track.performer?.name ?? track.album?.artist?.name ?? 'Unknown'} • ${_formatDuration(track.duration)}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: tt.bodySmall
-                                    ?.copyWith(color: cs.onSurfaceVariant)),
-                          ])),
-                      if (track.hires == true)
-                        Container(
+                                style: tt.bodySmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (track.hires == true)
+                          Container(
                             margin: const EdgeInsets.only(left: 4),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                                color: cs.tertiaryContainer,
-                                borderRadius: BorderRadius.circular(6)),
-                            child: Text('Hi-Res',
-                                style: tt.labelSmall?.copyWith(
-                                    color: cs.onTertiaryContainer,
-                                    fontWeight: FontWeight.w600))),
-                      const SizedBox(width: 4),
-                      _DownloadButton(
+                              color: cs.tertiaryContainer,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'Hi-Res',
+                              style: tt.labelSmall?.copyWith(
+                                color: cs.onTertiaryContainer,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        const SizedBox(width: 4),
+                        _DownloadButton(
                           progress: progress,
                           isDownloading: isDownloading,
                           isCompleted: isCompleted,
                           isFailed: isFailed,
                           onDownload: () => _downloadTrack(track),
                           cs: cs,
-                          tt: tt),
-                    ]),
+                          tt: tt,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 if (isDownloading)
                   ClipRRect(
-                    borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+                    borderRadius: const BorderRadius.vertical(
+                      bottom: Radius.circular(16),
+                    ),
                     child: LinearProgressIndicator(
                       value: progress,
                       minHeight: 3,
@@ -916,11 +1143,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                       backgroundColor: cs.surfaceContainerHighest,
                     ),
                   ),
-              ]),
-            );
-          },
-          childCount: tracks.length,
-        ),
+              ],
+            ),
+          );
+        }, childCount: tracks.length),
       ),
     );
   }
@@ -932,12 +1158,14 @@ class _CoverPlaceholder extends StatelessWidget {
   const _CoverPlaceholder({required this.cs});
   @override
   Widget build(BuildContext context) => Container(
-      width: 52,
-      height: 52,
-      decoration: BoxDecoration(
-          color: cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(10)),
-      child: Icon(Icons.music_note, color: cs.onSurfaceVariant));
+    width: 52,
+    height: 52,
+    decoration: BoxDecoration(
+      color: cs.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Icon(Icons.music_note, color: cs.onSurfaceVariant),
+  );
 }
 
 // ── Download Button (M3) ──
@@ -948,46 +1176,57 @@ class _DownloadButton extends StatelessWidget {
   final ColorScheme cs;
   final TextTheme tt;
 
-  const _DownloadButton(
-      {required this.progress,
-      required this.isDownloading,
-      required this.isCompleted,
-      required this.isFailed,
-      required this.onDownload,
-      required this.cs,
-      required this.tt});
+  const _DownloadButton({
+    required this.progress,
+    required this.isDownloading,
+    required this.isCompleted,
+    required this.isFailed,
+    required this.onDownload,
+    required this.cs,
+    required this.tt,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (isDownloading) {
-      return Stack(alignment: Alignment.center, children: [
-            WavyCircularProgressIndicator(
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: CircularProgressIndicator(
               value: progress,
-              size: 40,
               strokeWidth: 3,
-              color: cs.primary,
-              trackColor: cs.surfaceContainerHighest,
+              backgroundColor: cs.surfaceContainerHighest,
             ),
-            Text('${(progress! * 100).toInt()}',
-                style: tt.labelSmall?.copyWith(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    color: cs.primary)),
-          ]);
+          ),
+          Text(
+            '${(progress! * 100).toInt()}',
+            style: tt.labelSmall?.copyWith(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: cs.primary,
+            ),
+          ),
+        ],
+      );
     }
     if (isCompleted) {
       return Icon(Icons.check_circle_rounded, color: cs.tertiary, size: 24);
     }
     if (isFailed) {
       return IconButton(
-          icon: Icon(Icons.refresh_rounded, color: cs.error),
-          onPressed: onDownload,
-          tooltip: 'Retry');
+        icon: Icon(Icons.refresh_rounded, color: cs.error),
+        onPressed: onDownload,
+        tooltip: 'Retry',
+      );
     }
     return IconButton(
-        icon: Icon(Icons.download_rounded, color: cs.primary),
-        onPressed: onDownload,
-        tooltip: 'Download');
+      icon: Icon(Icons.download_rounded, color: cs.primary),
+      onPressed: onDownload,
+      tooltip: 'Download',
+    );
   }
 }
 
@@ -998,11 +1237,12 @@ class _AlbumCard extends StatelessWidget {
   final VoidCallback onDownload;
   final String Function(int?) formatYear;
 
-  const _AlbumCard(
-      {required this.album,
-      required this.onTap,
-      required this.onDownload,
-      required this.formatYear});
+  const _AlbumCard({
+    required this.album,
+    required this.onTap,
+    required this.onDownload,
+    required this.formatYear,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1015,62 +1255,85 @@ class _AlbumCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Stack(fit: StackFit.expand, children: [
-          // Cover
-          coverUrl.isNotEmpty
-              ? CachedNetworkImage(
-                  imageUrl: coverUrl,
-                  fit: BoxFit.cover,
-                  placeholder: (_, _a) => Container(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Cover
+            coverUrl.isNotEmpty
+                ? CachedNetworkImage(
+                    imageUrl: coverUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (_, _a) => Container(
                       color: cs.surfaceContainerHighest,
                       child: Center(
-                          child: Icon(Icons.album,
-                              size: 40, color: cs.outlineVariant))),
-                  errorWidget: (_, _a, _b) => Container(
+                        child: Icon(
+                          Icons.album,
+                          size: 40,
+                          color: cs.outlineVariant,
+                        ),
+                      ),
+                    ),
+                    errorWidget: (_, _a, _b) => Container(
                       color: cs.surfaceContainerHighest,
                       child: Center(
-                          child: Icon(Icons.album,
-                              size: 40, color: cs.outlineVariant))))
-              : Container(
-                  color: cs.surfaceContainerHighest,
-                  child: Center(
-                      child: Icon(Icons.album,
-                          size: 40, color: cs.outlineVariant))),
-          // Bottom gradient + text
-          Positioned(
+                        child: Icon(
+                          Icons.album,
+                          size: 40,
+                          color: cs.outlineVariant,
+                        ),
+                      ),
+                    ),
+                  )
+                : Container(
+                    color: cs.surfaceContainerHighest,
+                    child: Center(
+                      child: Icon(
+                        Icons.album,
+                        size: 40,
+                        color: cs.outlineVariant,
+                      ),
+                    ),
+                  ),
+            // Bottom gradient + text
+            Positioned(
               left: 0,
               right: 0,
               bottom: 0,
               child: Container(
                 padding: const EdgeInsets.fromLTRB(10, 28, 10, 10),
                 decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                      Colors.transparent,
-                      Colors.black.withAlpha(200)
-                    ])),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black.withAlpha(200)],
+                  ),
+                ),
                 child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(album.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: tt.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white)),
-                      const SizedBox(height: 2),
-                      Text(
-                          '${album.artist?.name ?? 'Unknown'}${year.isNotEmpty ? ' • $year' : ''}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: tt.bodySmall?.copyWith(color: Colors.white70)),
-                    ]),
-              )),
-          // Download button — M3 FilledTonal style
-          Positioned(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      album.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${album.artist?.name ?? 'Unknown'}${year.isNotEmpty ? ' • $year' : ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: tt.bodySmall?.copyWith(color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Download button — M3 FilledTonal style
+            Positioned(
               top: 6,
               left: 6,
               child: IconButton.filledTonal(
@@ -1083,23 +1346,33 @@ class _AlbumCard extends StatelessWidget {
                   padding: EdgeInsets.zero,
                 ),
                 tooltip: 'Download album',
-              )),
-          // Hi-res badge
-          if (album.hires == true)
-            Positioned(
+              ),
+            ),
+            // Hi-res badge
+            if (album.hires == true)
+              Positioned(
                 top: 8,
                 right: 8,
                 child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                    decoration: BoxDecoration(
-                        color: cs.tertiaryContainer.withAlpha(230),
-                        borderRadius: BorderRadius.circular(8)),
-                    child: Text('Hi-Res',
-                        style: tt.labelSmall?.copyWith(
-                            color: cs.onTertiaryContainer,
-                            fontWeight: FontWeight.w700)))),
-        ]),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.tertiaryContainer.withAlpha(230),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Hi-Res',
+                    style: tt.labelSmall?.copyWith(
+                      color: cs.onTertiaryContainer,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
