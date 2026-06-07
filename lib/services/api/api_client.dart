@@ -6,7 +6,8 @@ class ApiClient {
   final Dio _dio;
   final SecureStorage _secureStorage;
 
-  ApiClient(this._secureStorage) : _dio = Dio(BaseOptions(baseUrl: ApiConstants.qobuzBaseUrl)) {
+  ApiClient(this._secureStorage)
+    : _dio = Dio(BaseOptions(baseUrl: ApiConstants.qobuzBaseUrl)) {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {

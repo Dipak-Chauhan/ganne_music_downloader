@@ -6,7 +6,9 @@ import '../../../data/models/qobuz_models.dart';
 import '../../../data/providers/service_providers.dart';
 import '../../../data/providers/settings_provider.dart';
 import '../../../services/download/download_service.dart';
+import '../../../core/utils/app_toast.dart';
 import '../details/album_detail_screen.dart';
+import '../../widgets/glassmorphic_container.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -37,8 +39,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   StreamSubscription? _progressSub;
 
   List<String> _searchHistory = [];
-  bool _hiResOnly = false;
+  final bool _hiResOnly = false;
   String _searchSortOrder = 'default'; // 'default', 'title', 'artist'
+  bool _showSortMenu = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -160,6 +163,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   }
 
   void _onScroll() {
+    if (_showSuggestions) {
+      setState(() => _showSuggestions = false);
+    }
+    if (_showSortMenu) {
+      setState(() => _showSortMenu = false);
+    }
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 300) {
       _loadMore();
@@ -320,7 +329,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     return DateTime.fromMillisecondsSinceEpoch(t * 1000).year.toString();
   }
 
-  void _downloadTrack(QobuzTrack track) {
+  void _downloadTrack(QobuzTrack track) async {
     _subscribeToProgress();
     final settings = ref.read(appSettingsProvider);
 
@@ -333,7 +342,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
     final albumArtist = track.album?.artist?.name ?? artistString;
 
-    ref
+    final status = await ref
         .read(downloadServiceProvider)
         .queueTrack(
           trackId: track.id,
@@ -351,12 +360,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           coverUrl: track.album?.getCoverLargeUrl() ?? '',
           quality: settings.qualityId,
         );
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('"${track.title}" queued'),
-        action: SnackBarAction(label: 'Queue', onPressed: () {}),
-      ),
-    );
+    if (!mounted) return;
+    switch (status) {
+      case 'queued':
+        AppToast.success(context, '"${track.title}" added to queue');
+        break;
+      case 'already_in_queue':
+        AppToast.warning(context, '"${track.title}" is already in queue');
+        break;
+      case 'already_downloaded':
+        AppToast.info(context, '"${track.title}" was already downloaded');
+        break;
+    }
   }
 
   void _showAlbumDownloadOptions(QobuzAlbum album) {
@@ -418,8 +433,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       final data = await ref.read(qobuzServiceProvider).getAlbumInfo(album.id!);
       if (data.tracks?.items != null) {
         final service = ref.read(downloadServiceProvider);
+        int queued = 0;
+        int skipped = 0;
         for (var track in data.tracks!.items!) {
-          service.queueTrack(
+          final status = await service.queueTrack(
             trackId: track.id,
             trackTitle: track.title,
             albumTitle: album.title,
@@ -427,22 +444,34 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             coverUrl: album.getCoverLargeUrl(),
             quality: settings.qualityId,
           );
+          if (status == 'queued') {
+            queued++;
+          } else {
+            skipped++;
+          }
         }
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '${data.tracks!.items!.length} tracks from "${album.title}" queued',
-              ),
-            ),
-          );
+          if (queued > 0 && skipped == 0) {
+            AppToast.success(
+              context,
+              '$queued tracks from "${album.title}" queued',
+            );
+          } else if (queued > 0 && skipped > 0) {
+            AppToast.info(
+              context,
+              '$queued queued, $skipped already in library',
+            );
+          } else {
+            AppToast.warning(
+              context,
+              'All tracks already downloaded or in queue',
+            );
+          }
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
+        AppToast.error(context, 'Failed: $e');
       }
     }
   }
@@ -459,15 +488,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             qualityId: settings.qualityId,
           );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('ZIP download for "${album.title}" started!')),
-        );
+        AppToast.info(context, 'ZIP download started for "${album.title}"');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
+        AppToast.error(context, 'Failed: $e');
       }
     }
   }
@@ -492,6 +517,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     return GestureDetector(
       onTap: () {
         if (_showSuggestions) setState(() => _showSuggestions = false);
+        if (_showSortMenu) setState(() => _showSortMenu = false);
         _searchFocus.unfocus();
       },
       behavior: HitTestBehavior.opaque,
@@ -500,8 +526,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           children: [
             CustomScrollView(
               controller: _scrollController,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
               slivers: [
-                // ── Logo ──
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
@@ -521,7 +550,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                   ),
                 ),
 
-                // ── M3 Search Bar ──
                 SliverToBoxAdapter(
                   child: Padding(
                     key: _searchBarKey,
@@ -550,7 +578,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                   ),
                 ),
 
-                // ── Filter chips (M3 spec: proper avatar parameter) ──
                 if (hasResults || _isLoading)
                   SliverToBoxAdapter(
                     child: Padding(
@@ -558,102 +585,79 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                         horizontal: 16,
                         vertical: 4,
                       ),
-                      child: Column(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Row(
-                            children: [
-                              FilterChip(
-                                selected: _searchField == 'albums',
-                                avatar: Icon(
-                                  _searchField == 'albums'
-                                      ? Icons.album
-                                      : Icons.album_outlined,
-                                  size: 18,
-                                ),
-                                label: const Text('Albums'),
-                                onSelected: (_) =>
-                                    setState(() => _searchField = 'albums'),
-                              ),
-                              const SizedBox(width: 8),
-                              FilterChip(
-                                selected: _searchField == 'tracks',
-                                avatar: Icon(
-                                  _searchField == 'tracks'
-                                      ? Icons.music_note
-                                      : Icons.music_note_outlined,
-                                  size: 18,
-                                ),
-                                label: const Text('Tracks'),
-                                onSelected: (_) =>
-                                    setState(() => _searchField = 'tracks'),
-                              ),
-                              const Spacer(),
-                              if (hasResults)
-                                Text(
-                                  '${_searchField == 'albums' ? _getFilteredAlbums().length : _getFilteredTracks().length} of $_currentTotal',
-                                  style: tt.labelSmall?.copyWith(
-                                    color: cs.onSurfaceVariant,
-                                  ),
-                                ),
-                            ],
+                          FilterChip(
+                            selected: _searchField == 'albums',
+                            avatar: Icon(
+                              _searchField == 'albums'
+                                  ? Icons.album
+                                  : Icons.album_outlined,
+                              size: 18,
+                            ),
+                            label: const Text('Albums'),
+                            onSelected: (_) {
+                              if (_showSuggestions)
+                                setState(() => _showSuggestions = false);
+                              setState(() => _searchField = 'albums');
+                            },
                           ),
-                          const SizedBox(height: 6),
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: [
-                                FilterChip(
-                                  selected: _hiResOnly,
-                                  avatar: Icon(
-                                    Icons.high_quality,
-                                    size: 18,
-                                    color: _hiResOnly
-                                        ? cs.onTertiaryContainer
-                                        : null,
-                                  ),
-                                  selectedColor: cs.tertiaryContainer,
-                                  label: const Text('Hi-Res Only'),
-                                  onSelected: (val) =>
-                                      setState(() => _hiResOnly = val),
+                          const SizedBox(width: 8),
+                          FilterChip(
+                            selected: _searchField == 'tracks',
+                            avatar: Icon(
+                              _searchField == 'tracks'
+                                  ? Icons.music_note
+                                  : Icons.music_note_outlined,
+                              size: 18,
+                            ),
+                            label: const Text('Tracks'),
+                            onSelected: (_) {
+                              if (_showSuggestions)
+                                setState(() => _showSuggestions = false);
+                              setState(() => _searchField = 'tracks');
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: () {
+                              if (_showSuggestions)
+                                setState(() => _showSuggestions = false);
+                              setState(() => _showSortMenu = !_showSortMenu);
+                            },
+                            child: Chip(
+                              avatar: Icon(
+                                _searchSortOrder == 'default'
+                                    ? Icons.sort
+                                    : Icons.filter_list,
+                                size: 16,
+                                color: _showSortMenu ? cs.primary : null,
+                              ),
+                              label: Text(
+                                _searchSortOrder == 'default'
+                                    ? 'Sort'
+                                    : _searchSortOrder == 'title'
+                                    ? 'By Name'
+                                    : _searchSortOrder == 'newest'
+                                    ? 'By Newest'
+                                    : 'By Oldest',
+                                style: TextStyle(
+                                  color: _showSortMenu ? cs.primary : null,
+                                  fontWeight: _showSortMenu
+                                      ? FontWeight.w600
+                                      : null,
                                 ),
-                                const SizedBox(width: 8),
-                                PopupMenuButton<String>(
-                                  onSelected: (val) =>
-                                      setState(() => _searchSortOrder = val),
-                                  itemBuilder: (_) => const [
-                                    PopupMenuItem(
-                                      value: 'default',
-                                      child: Text('Default Order'),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'title',
-                                      child: Text('Sort by Name'),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'artist',
-                                      child: Text('Sort by Artist'),
-                                    ),
-                                  ],
-                                  child: Chip(
-                                    avatar: Icon(
-                                      _searchSortOrder == 'default'
-                                          ? Icons.sort
-                                          : Icons.filter_list,
-                                      size: 16,
-                                    ),
-                                    label: Text(
-                                      _searchSortOrder == 'default'
-                                          ? 'Sort'
-                                          : _searchSortOrder == 'title'
-                                          ? 'By Name'
-                                          : 'By Artist',
-                                    ),
-                                    side: BorderSide(
-                                      color: cs.outlineVariant.withAlpha(80),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                              ),
+                              backgroundColor: _showSortMenu
+                                  ? cs.primaryContainer.withAlpha(100)
+                                  : null,
+                              side: BorderSide(
+                                color: _showSortMenu
+                                    ? cs.primary.withAlpha(120)
+                                    : cs.outlineVariant.withAlpha(80),
+                              ),
                             ),
                           ),
                         ],
@@ -661,7 +665,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                     ),
                   ),
 
-                // ── Body ──
                 if (_isLoading)
                   SliverFillRemaining(
                     hasScrollBody: false,
@@ -785,156 +788,248 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
               ],
             ),
 
-            // ── Search Suggestions Overlay ──
             if (_showSuggestions && _suggestions != null)
               _buildSuggestionsOverlay(cs, tt),
+
+            if (_showSortMenu) _buildSortMenuOverlay(cs, tt),
           ],
         ),
       ),
     );
   }
 
-  // ── Suggestions Panel (positioned dynamically below SearchBar) ──
   Widget _buildSuggestionsOverlay(ColorScheme cs, TextTheme tt) {
     final albums = _suggestions?.albums?.items ?? [];
     final tracks = _suggestions?.tracks?.items ?? [];
     if (albums.isEmpty && tracks.isEmpty) return const SizedBox.shrink();
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Positioned(
       top: _suggestionsTop,
       left: 16,
       right: 16,
-      child: Material(
-        elevation: 6,
-        borderRadius: BorderRadius.circular(16),
-        shadowColor: cs.shadow.withAlpha(40),
-        color: cs.surfaceContainerHigh,
-        surfaceTintColor: cs.surfaceTint,
-        child: InkWell(
-          onTap: () {},
-          splashColor: Colors.transparent,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.bolt, size: 16, color: cs.primary),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Quick Results',
-                      style: tt.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Albums column
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Albums',
-                            style: tt.labelMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: cs.primary,
-                            ),
+      child: GestureDetector(
+        onTap: () {}, // Prevent tap propagation
+        child: GlassmorphicContainer(
+          borderRadius: 16,
+          blur: 25.0,
+          color: isDark ? cs.surface.withAlpha(140) : cs.surface.withAlpha(200),
+          borderColor: cs.primary.withAlpha(35),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.bolt, size: 16, color: cs.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Quick Results',
+                    style: tt.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Albums column
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Albums',
+                          style: tt.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: cs.primary,
                           ),
-                          const SizedBox(height: 6),
-                          ...albums
-                              .take(5)
-                              .map(
-                                (album) => InkWell(
-                                  borderRadius: BorderRadius.circular(8),
-                                  onTap: () {
-                                    setState(() => _showSuggestions = false);
-                                    _searchFocus.unfocus();
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            AlbumDetailScreen(album: album),
-                                      ),
-                                    );
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 5,
-                                      horizontal: 4,
+                        ),
+                        const SizedBox(height: 6),
+                        ...albums
+                            .take(5)
+                            .map(
+                              (album) => InkWell(
+                                borderRadius: BorderRadius.circular(8),
+                                onTap: () {
+                                  setState(() => _showSuggestions = false);
+                                  _searchFocus.unfocus();
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          AlbumDetailScreen(album: album),
                                     ),
-                                    child: Text(
-                                      album.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: tt.bodySmall?.copyWith(
-                                        color: cs.onSurface,
-                                      ),
+                                  );
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 5,
+                                    horizontal: 4,
+                                  ),
+                                  child: Text(
+                                    album.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: tt.bodySmall?.copyWith(
+                                      color: cs.onSurface,
                                     ),
                                   ),
                                 ),
                               ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      width: 1,
-                      height: 100,
-                      color: cs.outlineVariant.withAlpha(80),
-                    ),
-                    const SizedBox(width: 12),
-                    // Tracks column
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Tracks',
-                            style: tt.labelMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: cs.tertiary,
                             ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 100,
+                    color: cs.outlineVariant.withAlpha(80),
+                  ),
+                  const SizedBox(width: 12),
+                  // Tracks column
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Tracks',
+                          style: tt.labelMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: cs.tertiary,
                           ),
-                          const SizedBox(height: 6),
-                          ...tracks
-                              .take(5)
-                              .map(
-                                (track) => InkWell(
-                                  borderRadius: BorderRadius.circular(8),
-                                  onTap: () {
-                                    setState(() => _showSuggestions = false);
-                                    _searchFocus.unfocus();
-                                    _downloadTrack(track);
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 5,
-                                      horizontal: 4,
-                                    ),
-                                    child: Text(
-                                      track.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: tt.bodySmall?.copyWith(
-                                        color: cs.onSurface,
-                                      ),
+                        ),
+                        const SizedBox(height: 6),
+                        ...tracks
+                            .take(5)
+                            .map(
+                              (track) => InkWell(
+                                borderRadius: BorderRadius.circular(8),
+                                onTap: () {
+                                  setState(() => _showSuggestions = false);
+                                  _searchFocus.unfocus();
+                                  _downloadTrack(track);
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 5,
+                                    horizontal: 4,
+                                  ),
+                                  child: Text(
+                                    track.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: tt.bodySmall?.copyWith(
+                                      color: cs.onSurface,
                                     ),
                                   ),
                                 ),
                               ),
-                        ],
-                      ),
+                            ),
+                      ],
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+            ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSortMenuOverlay(ColorScheme cs, TextTheme tt) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Positioned(
+      top: _suggestionsTop + 44, // Positioned exactly below the filter row
+      left: MediaQuery.of(context).size.width * 0.15,
+      right: MediaQuery.of(context).size.width * 0.15,
+      child: GestureDetector(
+        onTap: () {}, // Prevent tap propagation
+        child: GlassmorphicContainer(
+          borderRadius: 16,
+          blur: 25.0,
+          color: isDark ? cs.surface.withAlpha(140) : cs.surface.withAlpha(200),
+          borderColor: cs.primary.withAlpha(35),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildSortMenuItem(
+                icon: Icons.sort_rounded,
+                title: 'Default Order',
+                value: 'default',
+                cs: cs,
+                tt: tt,
+              ),
+              _buildSortMenuItem(
+                icon: Icons.title_rounded,
+                title: 'Sort by Name',
+                value: 'title',
+                cs: cs,
+                tt: tt,
+              ),
+              _buildSortMenuItem(
+                icon: Icons.calendar_today_rounded,
+                title: 'Sort by Newest',
+                value: 'newest',
+                cs: cs,
+                tt: tt,
+              ),
+              _buildSortMenuItem(
+                icon: Icons.history_rounded,
+                title: 'Sort by Oldest',
+                value: 'oldest',
+                cs: cs,
+                tt: tt,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSortMenuItem({
+    required IconData icon,
+    required String title,
+    required String value,
+    required ColorScheme cs,
+    required TextTheme tt,
+  }) {
+    final isSelected = _searchSortOrder == value;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _searchSortOrder = value;
+          _showSortMenu = false;
+        });
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isSelected ? cs.primary : cs.onSurfaceVariant,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: tt.bodyMedium?.copyWith(
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  color: isSelected ? cs.primary : cs.onSurface,
+                ),
+              ),
+            ),
+            if (isSelected)
+              Icon(Icons.check_rounded, size: 18, color: cs.primary),
+          ],
         ),
       ),
     );
@@ -948,15 +1043,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     if (_searchSortOrder == 'title') {
       list = List<QobuzAlbum>.from(list)
         ..sort((a, b) => (a.title).compareTo(b.title));
-    } else if (_searchSortOrder == 'artist') {
-      list = List<QobuzAlbum>.from(
-        list,
-      )..sort((a, b) => (a.artist?.name ?? '').compareTo(b.artist?.name ?? ''));
+    } else if (_searchSortOrder == 'newest') {
+      list = List<QobuzAlbum>.from(list)
+        ..sort((a, b) => (b.releasedAt ?? 0).compareTo(a.releasedAt ?? 0));
+    } else if (_searchSortOrder == 'oldest') {
+      list = List<QobuzAlbum>.from(list)
+        ..sort(
+          (a, b) => (a.releasedAt ?? 9999999999).compareTo(
+            b.releasedAt ?? 9999999999,
+          ),
+        );
     }
     return list;
   }
 
-  // ── Albums Grid ──
   Widget _buildAlbumsGrid(ColorScheme cs, TextTheme tt) {
     final albums = _getFilteredAlbums();
     if (albums.isEmpty) {
@@ -1004,17 +1104,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     if (_searchSortOrder == 'title') {
       list = List<QobuzTrack>.from(list)
         ..sort((a, b) => (a.title).compareTo(b.title));
-    } else if (_searchSortOrder == 'artist') {
+    } else if (_searchSortOrder == 'newest') {
       list = List<QobuzTrack>.from(list)
         ..sort(
-          (a, b) => (a.performer?.name ?? a.album?.artist?.name ?? '')
-              .compareTo(b.performer?.name ?? b.album?.artist?.name ?? ''),
+          (a, b) =>
+              (b.album?.releasedAt ?? 0).compareTo(a.album?.releasedAt ?? 0),
+        );
+    } else if (_searchSortOrder == 'oldest') {
+      list = List<QobuzTrack>.from(list)
+        ..sort(
+          (a, b) => (a.album?.releasedAt ?? 9999999999).compareTo(
+            b.album?.releasedAt ?? 9999999999,
+          ),
         );
     }
     return list;
   }
 
-  // ── Tracks List ──
   Widget _buildTracksList(ColorScheme cs, TextTheme tt) {
     final tracks = _getFilteredTracks();
     if (tracks.isEmpty) {
@@ -1068,6 +1174,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                                   width: 52,
                                   height: 52,
                                   fit: BoxFit.cover,
+                                  memCacheWidth: 104, // Optimized cache size
+                                  memCacheHeight: 104,
                                   placeholder: (_, _a) =>
                                       _CoverPlaceholder(cs: cs),
                                 )
@@ -1152,7 +1260,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   }
 }
 
-// ── Cover Placeholder ──
 class _CoverPlaceholder extends StatelessWidget {
   final ColorScheme cs;
   const _CoverPlaceholder({required this.cs});
@@ -1168,7 +1275,6 @@ class _CoverPlaceholder extends StatelessWidget {
   );
 }
 
-// ── Download Button (M3) ──
 class _DownloadButton extends StatelessWidget {
   final double? progress;
   final bool isDownloading, isCompleted, isFailed;
@@ -1230,7 +1336,6 @@ class _DownloadButton extends StatelessWidget {
   }
 }
 
-// ── Album Card (M3 filled card with overlays) ──
 class _AlbumCard extends StatelessWidget {
   final QobuzAlbum album;
   final VoidCallback onTap;
@@ -1263,6 +1368,8 @@ class _AlbumCard extends StatelessWidget {
                 ? CachedNetworkImage(
                     imageUrl: coverUrl,
                     fit: BoxFit.cover,
+                    memCacheWidth: 200, // Optimized cache size
+                    memCacheHeight: 200,
                     placeholder: (_, _a) => Container(
                       color: cs.surfaceContainerHighest,
                       child: Center(

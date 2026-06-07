@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 
 class PermissionService {
   static Future<bool> requestStoragePermission() async {
@@ -14,7 +15,7 @@ class PermissionService {
         if (!status.isGranted) {
           status = await Permission.manageExternalStorage.request();
         }
-        
+
         if (!status.isGranted) {
           var audioStatus = await Permission.audio.status;
           if (!audioStatus.isGranted) {
@@ -47,5 +48,34 @@ class PermissionService {
       }
     }
     return true; // Not mobile device
+  }
+
+  /// Check if the app is already exempted from battery optimization.
+  static Future<bool> isBatteryOptimizationDisabled() async {
+    if (!Platform.isAndroid) return true;
+    try {
+      final status = await Permission.ignoreBatteryOptimizations.status;
+      return status.isGranted;
+    } catch (e) {
+      debugPrint('Battery optimization check error: $e');
+      return false;
+    }
+  }
+
+  /// Request the user to disable battery optimization for this app.
+  /// Shows the system dialog that lets the user choose to exempt the app.
+  /// Returns true if the exemption was granted.
+  static Future<bool> requestBatteryOptimizationExemption() async {
+    if (!Platform.isAndroid) return true;
+    try {
+      final status = await Permission.ignoreBatteryOptimizations.status;
+      if (status.isGranted) return true;
+
+      final result = await Permission.ignoreBatteryOptimizations.request();
+      return result.isGranted;
+    } catch (e) {
+      debugPrint('Battery optimization request error: $e');
+      return false;
+    }
   }
 }

@@ -50,16 +50,14 @@ class DownloadService {
   FlutterLocalNotificationsPlugin? _notifications;
   bool _initialized = false;
   bool _isProcessing = false;
-  final int _maxConcurrent = 2;
+  final int _maxConcurrent = 4;
   String _baseMusicDir = '/storage/emulated/0/Music/Ganne';
 
-  // ── Progress stream ──
   final StreamController<Map<int, double>> _progressController =
       StreamController<Map<int, double>>.broadcast();
   Stream<Map<int, double>> get progressStream => _progressController.stream;
   final Map<int, double> _currentProgress = {};
 
-  // ── Active download info stream (for floating bar) ──
   final StreamController<ActiveDownloadInfo?> _activeController =
       StreamController<ActiveDownloadInfo?>.broadcast();
   Stream<ActiveDownloadInfo?> get activeDownloadStream =>
@@ -143,7 +141,9 @@ class DownloadService {
     );
   }
 
-  Future<void> queueTrack({
+  /// Queue a track for download.
+  /// Returns 'queued', 'already_in_queue', or 'already_downloaded'.
+  Future<String> queueTrack({
     required int trackId,
     required String trackTitle,
     required String albumTitle,
@@ -156,6 +156,13 @@ class DownloadService {
     int? year,
     String? genre,
   }) async {
+    if (await _db.isTrackInQueue(trackId)) {
+      return 'already_in_queue';
+    }
+    if (await _db.isTrackCompleted(trackId)) {
+      return 'already_downloaded';
+    }
+
     final sanitizedArtist = artistName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '');
     final sanitizedAlbum = albumTitle.replaceAll(RegExp(r'[\\/:*?"<>|]'), '');
     final savePath = p.join(_baseMusicDir, sanitizedArtist, sanitizedAlbum);
@@ -178,7 +185,10 @@ class DownloadService {
       ),
     );
     processQueue();
+    return 'queued';
   }
+
+  bool _batteryOptAsked = false;
 
   void processQueue() async {
     if (!_initialized || _isProcessing) return;
@@ -192,12 +202,28 @@ class DownloadService {
     }
     await PermissionService.requestNotificationPermission();
 
+    // Ask to disable battery optimization once per session so downloads
+    // continue running when the app is in the background.
+    if (!_batteryOptAsked) {
+      _batteryOptAsked = true;
+      final isExempt = await PermissionService.isBatteryOptimizationDisabled();
+      if (!isExempt) {
+        await PermissionService.requestBatteryOptimizationExemption();
+      }
+    }
+
     try {
       while (true) {
         final tasks = await _db.getAllTasks();
+        final activeCount = tasks
+            .where((t) => t.status == 'downloading')
+            .length;
+        final slotsAvailable = _maxConcurrent - activeCount;
+        if (slotsAvailable <= 0) break;
+
         final pending = tasks
             .where((t) => t.status == 'pending')
-            .take(_maxConcurrent)
+            .take(slotsAvailable)
             .toList();
         if (pending.isEmpty) break;
         await Future.wait(pending.map((task) => _downloadTask(task)));
@@ -290,7 +316,6 @@ class DownloadService {
       // 1. Rename the download file from tempPath to finalPath (done first for consistency)
       await File(tempPath).rename(finalPath);
 
-      // 2. ── Apply Metadata (title, artist, album, cover art) ──
       final applyMetadataRaw = await _secureStorage.readKey('setting_metadata');
       final shouldApplyMetadata = applyMetadataRaw != 'false';
 
@@ -669,6 +694,59 @@ class DownloadService {
       token.cancel('User cancelled all');
     }
     _cancelTokens.clear();
+  }
+
+  Future<void> deleteEmptyDirs(String filePath) async {
+    try {
+      final baseDir = _baseMusicDir;
+      var currentDir = Directory(p.dirname(filePath));
+
+      while (currentDir.path != baseDir &&
+          currentDir.path.length > baseDir.length) {
+        if (await currentDir.exists()) {
+          final entities = await currentDir.list().isEmpty;
+          if (entities) {
+            await currentDir.delete();
+            debugPrint('Deleted empty directory: ${currentDir.path}');
+            currentDir = currentDir.parent;
+          } else {
+            break;
+          }
+        } else {
+          break;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error cleaning up empty directories: $e');
+    }
+  }
+
+  Future<void> resetLibraryStorage({VoidCallback? onStopPlayer}) async {
+    // 1. Cancel all active download tokens
+    cancelAll();
+
+    // 2. Stop player via callback
+    if (onStopPlayer != null) {
+      onStopPlayer();
+    }
+
+    // 3. Clear SQLite database completely
+    await _db.clearAllTasks();
+
+    // 4. Recursively delete the entire base music directory
+    try {
+      final dir = Directory(_baseMusicDir);
+      if (await dir.exists()) {
+        await dir.delete(recursive: true);
+        debugPrint(
+          'Successfully deleted music folder recursively: $_baseMusicDir',
+        );
+      }
+      // Re-create the empty directory
+      await dir.create(recursive: true);
+    } catch (e) {
+      debugPrint('Error deleting music directory recursively: $e');
+    }
   }
 
   void _setActiveInfo(ActiveDownloadInfo? info) {

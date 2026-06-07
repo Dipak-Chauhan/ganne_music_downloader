@@ -85,9 +85,12 @@ class AudioPlayerNotifier extends Notifier<PlaybackState> {
     return const PlaybackState();
   }
 
-  Future<void> playTrack(DownloadTask track, List<DownloadTask> newQueue) async {
+  Future<void> playTrack(
+    DownloadTask track,
+    List<DownloadTask> newQueue,
+  ) async {
     final idx = newQueue.indexWhere((t) => t.id == track.id);
-    
+
     state = state.copyWith(
       currentTrack: () => track,
       queue: newQueue,
@@ -114,6 +117,18 @@ class AudioPlayerNotifier extends Notifier<PlaybackState> {
     } catch (e) {
       debugPrint('Error playing track: $e');
     }
+  }
+
+  Future<void> stop() async {
+    try {
+      await _player.stop();
+    } catch (_) {}
+    state = state.copyWith(
+      currentTrack: () => null,
+      isPlaying: false,
+      position: Duration.zero,
+      duration: Duration.zero,
+    );
   }
 
   Future<void> togglePlay() async {
@@ -206,7 +221,8 @@ class AudioPlayerNotifier extends Notifier<PlaybackState> {
 
     if (state.isShuffle && _shuffledIndices.isNotEmpty) {
       final currentShuffledIdx = _shuffledIndices.indexOf(state.currentIndex);
-      if (currentShuffledIdx != -1 && currentShuffledIdx < _shuffledIndices.length - 1) {
+      if (currentShuffledIdx != -1 &&
+          currentShuffledIdx < _shuffledIndices.length - 1) {
         return _shuffledIndices[currentShuffledIdx + 1];
       }
       return -1; // End of shuffled list
@@ -248,6 +264,7 @@ class AudioPlayerNotifier extends Notifier<PlaybackState> {
   }
 }
 
-final audioPlayerProvider = NotifierProvider<AudioPlayerNotifier, PlaybackState>(() {
-  return AudioPlayerNotifier();
-});
+final audioPlayerProvider =
+    NotifierProvider<AudioPlayerNotifier, PlaybackState>(() {
+      return AudioPlayerNotifier();
+    });

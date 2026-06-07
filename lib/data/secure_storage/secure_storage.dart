@@ -23,7 +23,7 @@ class SecureStorage {
     final appId = await _storage.read(key: _keyAppId);
     final appSecret = await _storage.read(key: _keyAppSecret);
     final userAuthToken = await _storage.read(key: _keyUserAuthToken);
-    
+
     return {
       'appId': appId,
       'appSecret': appSecret,
@@ -37,7 +37,6 @@ class SecureStorage {
     await _storage.delete(key: _keyUserAuthToken);
   }
 
-  // ── Generic read/write for app settings ──
   Future<void> writeKey(String key, String value) async {
     await _storage.write(key: key, value: value);
   }

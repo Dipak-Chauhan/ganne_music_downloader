@@ -19,6 +19,12 @@ class AppTheme {
         return const Color(0xFFFF6D00); // Amber Sunset
       case 'sakura':
         return const Color(0xFFFF4081); // Sakura Pink
+      case 'teal':
+        return const Color(0xFF00BFA5); // Teal Accent
+      case 'amber':
+        return const Color(0xFFFFC400); // Premium Amber
+      case 'indigo':
+        return const Color(0xFF3D5AFE); // Royal Indigo
       default:
         return _seedColor;
     }
@@ -28,27 +34,40 @@ class AppTheme {
     final seed = getSeedColor(themeAccent);
     final scheme = (themeAccent == 'dynamic' && lightDynamic != null)
         ? lightDynamic
-        : ColorScheme.fromSeed(
-            seedColor: seed,
-            brightness: Brightness.light,
-          );
+        : ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.light);
     return _buildTheme(scheme, Brightness.light);
   }
 
-  static ThemeData darkTheme(ColorScheme? darkDynamic, String themeAccent) {
+  static ThemeData darkTheme(
+    ColorScheme? darkDynamic,
+    String themeAccent, {
+    bool useAmoled = false,
+  }) {
     final seed = getSeedColor(themeAccent);
-    final scheme = (themeAccent == 'dynamic' && darkDynamic != null)
+    var scheme = (themeAccent == 'dynamic' && darkDynamic != null)
         ? darkDynamic
-        : ColorScheme.fromSeed(
-            seedColor: seed,
-            brightness: Brightness.dark,
-          );
+        : ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark);
+
+    if (useAmoled) {
+      scheme = scheme.copyWith(
+        surface: const Color(0xFF000000),
+        onSurface: const Color(0xFFFFFFFF),
+        surfaceContainer: const Color(0xFF000000),
+        surfaceContainerLow: const Color(0xFF080808),
+        surfaceContainerLowest: const Color(0xFF000000),
+        surfaceContainerHigh: const Color(0xFF101010),
+        surfaceContainerHighest: const Color(0xFF1A1A1A),
+        outlineVariant: const Color(0xFF2E2E2E),
+      );
+    }
     return _buildTheme(scheme, Brightness.dark);
   }
 
   static ThemeData _buildTheme(ColorScheme scheme, Brightness brightness) {
     final textTheme = GoogleFonts.interTextTheme(
-      brightness == Brightness.dark ? ThemeData.dark().textTheme : ThemeData.light().textTheme,
+      brightness == Brightness.dark
+          ? ThemeData.dark().textTheme
+          : ThemeData.light().textTheme,
     );
 
     return ThemeData(
@@ -57,7 +76,6 @@ class AppTheme {
       brightness: brightness,
       textTheme: textTheme,
 
-      // ── Navigation Bar (M3 spec) ──
       navigationBarTheme: NavigationBarThemeData(
         indicatorColor: scheme.secondaryContainer,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
@@ -81,7 +99,6 @@ class AppTheme {
         }),
       ),
 
-      // ── AppBar (M3 spec: surface color, no elevation) ──
       appBarTheme: AppBarTheme(
         centerTitle: true,
         backgroundColor: scheme.surface,
@@ -95,7 +112,6 @@ class AppTheme {
         ),
       ),
 
-      // ── Cards (M3 spec: filled card = surfaceContainerLow, outlined = surface + outline) ──
       cardTheme: CardThemeData(
         elevation: 0,
         color: scheme.surfaceContainerLow,
@@ -103,42 +119,47 @@ class AppTheme {
         clipBehavior: Clip.antiAlias,
       ),
 
-      // ── Filled Button (M3 spec: 20dp corner radius) ──
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          textStyle: textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
 
-      // ── Outlined Button (M3 spec) ──
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           side: BorderSide(color: scheme.outline),
-          textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+          textStyle: textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
 
-      // ── Text Button (M3 spec) ──
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          textStyle: textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
 
-      // ── Icon Button (M3 spec: 40dp touch target) ──
       iconButtonTheme: IconButtonThemeData(
-        style: IconButton.styleFrom(
-          minimumSize: const Size(40, 40),
-        ),
+        style: IconButton.styleFrom(minimumSize: const Size(40, 40)),
       ),
 
-      // ── Input Fields (M3 spec: filled text field = 4dp top corners, 0 bottom) ──
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: scheme.surfaceContainerHighest.withAlpha(120),
@@ -162,12 +183,18 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: scheme.error, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        labelStyle: textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
-        hintStyle: textTheme.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 16,
+        ),
+        labelStyle: textTheme.bodyLarge?.copyWith(
+          color: scheme.onSurfaceVariant,
+        ),
+        hintStyle: textTheme.bodyLarge?.copyWith(
+          color: scheme.onSurfaceVariant,
+        ),
       ),
 
-      // ── Search Bar (M3 spec: surfaceContainerHigh, 28dp radius, no elevation) ──
       searchBarTheme: SearchBarThemeData(
         elevation: WidgetStateProperty.all(0),
         backgroundColor: WidgetStateProperty.all(scheme.surfaceContainerHigh),
@@ -184,7 +211,6 @@ class AppTheme {
         side: WidgetStateProperty.all(BorderSide.none),
       ),
 
-      // ── Chips (M3 spec: 8dp radius, outline) ──
       chipTheme: ChipThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         side: BorderSide(color: scheme.outlineVariant.withAlpha(100)),
@@ -192,7 +218,6 @@ class AppTheme {
         showCheckmark: false,
       ),
 
-      // ── Bottom Sheet (M3 spec: 28dp top corners, surfaceContainerLow) ──
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: scheme.surfaceContainerLow,
         modalBackgroundColor: scheme.surfaceContainerLow,
@@ -205,7 +230,6 @@ class AppTheme {
         dragHandleSize: const Size(32, 4),
       ),
 
-      // ── Popup Menu (M3 spec: surfaceContainer, 12dp radius) ──
       popupMenuTheme: PopupMenuThemeData(
         color: scheme.surfaceContainer,
         surfaceTintColor: scheme.surfaceTint,
@@ -214,26 +238,29 @@ class AppTheme {
         textStyle: textTheme.bodyMedium,
       ),
 
-      // ── Dialogs (M3 spec: 28dp radius, surfaceContainerHigh) ──
       dialogTheme: DialogThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         backgroundColor: scheme.surfaceContainerHigh,
         surfaceTintColor: scheme.surfaceTint,
-        titleTextStyle: textTheme.headlineSmall?.copyWith(color: scheme.onSurface),
-        contentTextStyle: textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+        titleTextStyle: textTheme.headlineSmall?.copyWith(
+          color: scheme.onSurface,
+        ),
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: scheme.onSurfaceVariant,
+        ),
       ),
 
-      // ── Snack Bar (M3 spec: inverseSurface, 12dp radius, floating) ──
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         backgroundColor: scheme.inverseSurface,
-        contentTextStyle: textTheme.bodyMedium?.copyWith(color: scheme.onInverseSurface),
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: scheme.onInverseSurface,
+        ),
         actionTextColor: scheme.inversePrimary,
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
 
-      // ── Switch (M3 spec: checkmark icon on selected thumb) ──
       switchTheme: SwitchThemeData(
         thumbIcon: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
@@ -243,7 +270,6 @@ class AppTheme {
         }),
       ),
 
-      // ── Progress Indicators (M3 spec: round caps, track gap) ──
       progressIndicatorTheme: ProgressIndicatorThemeData(
         color: scheme.primary,
         linearTrackColor: scheme.surfaceContainerHighest,
@@ -255,7 +281,6 @@ class AppTheme {
         refreshBackgroundColor: scheme.surfaceContainerHighest,
       ),
 
-      // ── DropdownMenu (M3 native) ──
       dropdownMenuTheme: DropdownMenuThemeData(
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
@@ -264,23 +289,23 @@ class AppTheme {
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(color: scheme.outlineVariant),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 12,
+          ),
         ),
       ),
 
-      // ── Divider (M3 spec: outlineVariant) ──
       dividerTheme: DividerThemeData(
         color: scheme.outlineVariant.withAlpha(60),
         thickness: 1,
       ),
 
-      // ── List Tile ──
       listTileTheme: ListTileThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       ),
 
-      // ── Floating Action Button (M3 spec) ──
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: scheme.primaryContainer,
         foregroundColor: scheme.onPrimaryContainer,
@@ -288,7 +313,6 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
-      // ── Page Transitions ──
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
           TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),

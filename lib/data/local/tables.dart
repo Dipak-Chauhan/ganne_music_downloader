@@ -15,7 +15,9 @@ class DownloadTasks extends Table {
   TextColumn get quality => text()();
   IntColumn get totalBytes => integer().withDefault(const Constant(0))();
   IntColumn get downloadedBytes => integer().withDefault(const Constant(0))();
-  TextColumn get status => text().withDefault(const Constant('pending'))(); // pending, downloading, paused, completed, failed
+  TextColumn get status => text().withDefault(
+    const Constant('pending'),
+  )(); // pending, downloading, paused, completed, failed
   TextColumn get savePath => text().nullable()();
   IntColumn get addedAt => integer()();
 }

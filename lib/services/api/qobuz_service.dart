@@ -11,19 +11,22 @@ class QobuzService {
 
   QobuzService(this._apiClient, this._secureStorage);
 
-  Future<SearchResults> search(String query, {int limit = 50, int offset = 0}) async {
+  Future<SearchResults> search(
+    String query, {
+    int limit = 50,
+    int offset = 0,
+  }) async {
     try {
       final response = await _apiClient.dio.get(
         'catalog/search',
-        queryParameters: {
-          'query': query,
-          'limit': limit,
-          'offset': offset,
-        },
+        queryParameters: {'query': query, 'limit': limit, 'offset': offset},
       );
       return SearchResults.fromJson(response.data);
     } on DioException catch (e) {
-      throw ApiException(e.message ?? 'Unknown API Error', statusCode: e.response?.statusCode);
+      throw ApiException(
+        e.message ?? 'Unknown API Error',
+        statusCode: e.response?.statusCode,
+      );
     }
   }
 
@@ -31,14 +34,14 @@ class QobuzService {
     try {
       final response = await _apiClient.dio.get(
         'album/get',
-        queryParameters: {
-          'album_id': albumId,
-          'extra': 'track_ids',
-        },
+        queryParameters: {'album_id': albumId, 'extra': 'track_ids'},
       );
       return FetchedAlbumResponse.fromJson(response.data);
     } on DioException catch (e) {
-      throw ApiException(e.message ?? 'Unknown API Error', statusCode: e.response?.statusCode);
+      throw ApiException(
+        e.message ?? 'Unknown API Error',
+        statusCode: e.response?.statusCode,
+      );
     }
   }
 
@@ -71,7 +74,10 @@ class QobuzService {
 
       return response.data['url'];
     } on DioException catch (e) {
-      throw ApiException(e.message ?? 'Unknown API Error', statusCode: e.response?.statusCode);
+      throw ApiException(
+        e.message ?? 'Unknown API Error',
+        statusCode: e.response?.statusCode,
+      );
     }
   }
 }

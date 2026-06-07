@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../../data/models/qobuz_models.dart';
 import '../../../data/providers/service_providers.dart';
 import '../../../services/download/download_service.dart';
+import '../../../core/utils/app_toast.dart';
 
 class AlbumDetailScreen extends ConsumerStatefulWidget {
   final QobuzAlbum album;
@@ -78,7 +79,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
     return "$m:${s.toString().padLeft(2, '0')}";
   }
 
-  void _queueTrack(QobuzTrack track) {
+  Future<String> _queueTrack(QobuzTrack track) async {
     final service = ref.read(downloadServiceProvider);
 
     // Format complex artist string
@@ -93,7 +94,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
 
     final albumArtist = widget.album.artist?.name ?? artistString;
 
-    service.queueTrack(
+    return service.queueTrack(
       trackId: track.id,
       trackTitle: track.title,
       albumTitle: widget.album.title,
@@ -176,26 +177,40 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
           fetchedData: _fetchedData!,
           qualityId: _selectedQuality,
         );
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Album ZIP download started...')),
-    );
+    AppToast.info(context, 'ZIP download started for "${widget.album.title}"');
   }
 
-  void _downloadAlbumIndividual() {
+  void _downloadAlbumIndividual() async {
     if (_fetchedData?.tracks?.items == null) return;
 
+    int queued = 0;
+    int skipped = 0;
     for (var track in _fetchedData!.tracks!.items!) {
-      _queueTrack(track);
+      final status = await _queueTrack(track);
+      if (status == 'queued') {
+        queued++;
+      } else {
+        skipped++;
+      }
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${_fetchedData!.tracks!.items!.length} tracks queued!'),
-        action: SnackBarAction(
-          label: 'View Queue',
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-    );
+    if (!mounted) return;
+    if (queued > 0 && skipped == 0) {
+      AppToast.success(
+        context,
+        '$queued tracks queued for download',
+        actionLabel: 'Queue',
+        onAction: () => Navigator.pop(context),
+      );
+    } else if (queued > 0 && skipped > 0) {
+      AppToast.info(
+        context,
+        '$queued queued, $skipped already in library',
+        actionLabel: 'Queue',
+        onAction: () => Navigator.pop(context),
+      );
+    } else {
+      AppToast.warning(context, 'All tracks already downloaded or in queue');
+    }
   }
 
   @override
@@ -225,8 +240,10 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
               ),
             )
           : CustomScrollView(
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
               slivers: [
-                // ── Collapsing App Bar (M3 Large Top App Bar) ──
                 SliverAppBar.large(
                   pinned: true,
                   expandedHeight: 320,
@@ -277,7 +294,6 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                   ),
                 ),
 
-                // ── Album Metadata (M3 Chips) ──
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
@@ -364,7 +380,6 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                   ),
                 ),
 
-                // ── Quality + Download All ──
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
@@ -403,7 +418,6 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                   child: Divider(indent: 20, endIndent: 20),
                 ),
 
-                // ── Track List ──
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(8, 4, 8, 24),
                   sliver: SliverList(
@@ -424,13 +438,29 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                           children: [
                             InkWell(
                               borderRadius: BorderRadius.circular(16),
-                              onTap: () {
-                                _queueTrack(track);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('"${track.title}" queued!'),
-                                  ),
-                                );
+                              onTap: () async {
+                                final status = await _queueTrack(track);
+                                if (!context.mounted) return;
+                                switch (status) {
+                                  case 'queued':
+                                    AppToast.success(
+                                      context,
+                                      '"${track.title}" added to queue',
+                                    );
+                                    break;
+                                  case 'already_in_queue':
+                                    AppToast.warning(
+                                      context,
+                                      '"${track.title}" is already in queue',
+                                    );
+                                    break;
+                                  case 'already_downloaded':
+                                    AppToast.info(
+                                      context,
+                                      '"${track.title}" was already downloaded',
+                                    );
+                                    break;
+                                }
                               },
                               child: Padding(
                                 padding: const EdgeInsets.fromLTRB(

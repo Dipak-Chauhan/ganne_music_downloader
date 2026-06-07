@@ -29,8 +29,16 @@ class GanneApp extends ConsumerWidget {
           title: AppConstants.appName,
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme(lightDynamic, settings.themeAccent),
-          darkTheme: AppTheme.darkTheme(darkDynamic, settings.themeAccent),
-          themeMode: ThemeMode.system,
+          darkTheme: AppTheme.darkTheme(
+            darkDynamic,
+            settings.themeAccent,
+            useAmoled: settings.useAmoled,
+          ),
+          themeMode: settings.themeMode == 'light'
+              ? ThemeMode.light
+              : settings.themeMode == 'dark'
+              ? ThemeMode.dark
+              : ThemeMode.system,
           routerConfig: router,
         );
       },

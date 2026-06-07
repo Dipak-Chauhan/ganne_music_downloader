@@ -5,7 +5,11 @@ class TrackListTile extends StatelessWidget {
   final QobuzTrack track;
   final VoidCallback onDownload;
 
-  const TrackListTile({super.key, required this.track, required this.onDownload});
+  const TrackListTile({
+    super.key,
+    required this.track,
+    required this.onDownload,
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -12,7 +12,8 @@ class QobuzArtist {
 
   QobuzArtist(this.id, this.name, this.image, this.albumsCount);
 
-  factory QobuzArtist.fromJson(Map<String, dynamic> json) => _$QobuzArtistFromJson(json);
+  factory QobuzArtist.fromJson(Map<String, dynamic> json) =>
+      _$QobuzArtistFromJson(json);
 }
 
 @JsonSerializable(createToJson: false)
@@ -24,7 +25,8 @@ class QobuzImage {
 
   QobuzImage(this.small, this.thumbnail, this.large, this.back);
 
-  factory QobuzImage.fromJson(Map<String, dynamic> json) => _$QobuzImageFromJson(json);
+  factory QobuzImage.fromJson(Map<String, dynamic> json) =>
+      _$QobuzImageFromJson(json);
 }
 
 @JsonSerializable(createToJson: false)
@@ -34,7 +36,8 @@ class QobuzGenre {
 
   QobuzGenre(this.id, this.name);
 
-  factory QobuzGenre.fromJson(Map<String, dynamic> json) => _$QobuzGenreFromJson(json);
+  factory QobuzGenre.fromJson(Map<String, dynamic> json) =>
+      _$QobuzGenreFromJson(json);
 }
 
 @JsonSerializable(createToJson: false)
@@ -62,9 +65,27 @@ class QobuzAlbum {
   @JsonKey(name: 'parental_warning')
   final bool? parentalWarning;
 
-  QobuzAlbum(this.id, this.qobuzId, this.title, this.version, this.genre, this.artist, this.artists, this.image, this.maximumBitDepth, this.maximumSamplingRate, this.releasedAt, this.duration, this.tracksCount, this.hires, this.streamable, this.parentalWarning);
+  QobuzAlbum(
+    this.id,
+    this.qobuzId,
+    this.title,
+    this.version,
+    this.genre,
+    this.artist,
+    this.artists,
+    this.image,
+    this.maximumBitDepth,
+    this.maximumSamplingRate,
+    this.releasedAt,
+    this.duration,
+    this.tracksCount,
+    this.hires,
+    this.streamable,
+    this.parentalWarning,
+  );
 
-  factory QobuzAlbum.fromJson(Map<String, dynamic> json) => _$QobuzAlbumFromJson(json);
+  factory QobuzAlbum.fromJson(Map<String, dynamic> json) =>
+      _$QobuzAlbumFromJson(json);
 
   String getCoverLargeUrl() {
     return image?.large ?? '';
@@ -100,9 +121,24 @@ class QobuzTrack {
   final QobuzAlbum? album;
   final QobuzArtist? performer;
 
-  QobuzTrack(this.id, this.title, this.version, this.duration, this.trackNumber, this.mediaNumber, this.maximumBitDepth, this.maximumSamplingRate, this.hires, this.streamable, this.parentalWarning, this.album, this.performer);
+  QobuzTrack(
+    this.id,
+    this.title,
+    this.version,
+    this.duration,
+    this.trackNumber,
+    this.mediaNumber,
+    this.maximumBitDepth,
+    this.maximumSamplingRate,
+    this.hires,
+    this.streamable,
+    this.parentalWarning,
+    this.album,
+    this.performer,
+  );
 
-  factory QobuzTrack.fromJson(Map<String, dynamic> json) => _$QobuzTrackFromJson(json);
+  factory QobuzTrack.fromJson(Map<String, dynamic> json) =>
+      _$QobuzTrackFromJson(json);
 }
 
 @JsonSerializable(createToJson: false)
@@ -113,7 +149,8 @@ class SearchResults {
 
   SearchResults(this.query, this.albums, this.tracks);
 
-  factory SearchResults.fromJson(Map<String, dynamic> json) => _$SearchResultsFromJson(json);
+  factory SearchResults.fromJson(Map<String, dynamic> json) =>
+      _$SearchResultsFromJson(json);
 }
 
 @JsonSerializable(createToJson: false)
@@ -125,7 +162,8 @@ class AlbumsResult {
 
   AlbumsResult(this.limit, this.offset, this.total, this.items);
 
-  factory AlbumsResult.fromJson(Map<String, dynamic> json) => _$AlbumsResultFromJson(json);
+  factory AlbumsResult.fromJson(Map<String, dynamic> json) =>
+      _$AlbumsResultFromJson(json);
 }
 
 @JsonSerializable(createToJson: false)
@@ -137,7 +175,8 @@ class TracksResult {
 
   TracksResult(this.limit, this.offset, this.total, this.items);
 
-  factory TracksResult.fromJson(Map<String, dynamic> json) => _$TracksResultFromJson(json);
+  factory TracksResult.fromJson(Map<String, dynamic> json) =>
+      _$TracksResultFromJson(json);
 }
 
 @JsonSerializable(createToJson: false)
@@ -151,7 +190,7 @@ class FetchedAlbumResponse {
     // Qobuz album/get endpoint returns album info merged with track info, or sometimes root object is the album.
     return FetchedAlbumResponse(
       QobuzAlbum.fromJson(json),
-      json['tracks'] != null ? TracksResult.fromJson(json['tracks']) : null
+      json['tracks'] != null ? TracksResult.fromJson(json['tracks']) : null,
     );
   }
 }

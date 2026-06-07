@@ -16,15 +16,24 @@ void callbackDispatcher() {
       final qobuzService = QobuzService(apiClient, secureStorage);
 
       final notificationsPlugin = FlutterLocalNotificationsPlugin();
-      const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
-      const InitializationSettings initializationSettings = InitializationSettings(android: initializationSettingsAndroid);
+      const AndroidInitializationSettings initializationSettingsAndroid =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+      const InitializationSettings initializationSettings =
+          InitializationSettings(android: initializationSettingsAndroid);
       await notificationsPlugin.initialize(settings: initializationSettings);
 
-      final downloadManager = DownloadManager(apiClient.dio, db, notificationsPlugin);
+      final downloadManager = DownloadManager(
+        apiClient.dio,
+        db,
+        notificationsPlugin,
+      );
 
       // Get pending tasks up to limit
       final tasks = await db.getAllTasks();
-      final pendingTasks = tasks.where((t) => t.status == 'pending' || t.status == 'failed').take(3).toList(); // Simple concurrent limit 3
+      final pendingTasks = tasks
+          .where((t) => t.status == 'pending' || t.status == 'failed')
+          .take(3)
+          .toList(); // Simple concurrent limit 3
 
       if (pendingTasks.isEmpty) {
         return Future.value(true);
@@ -32,7 +41,10 @@ void callbackDispatcher() {
 
       for (var task in pendingTasks) {
         try {
-          final url = await qobuzService.getDownloadUrl(task.trackId, task.quality);
+          final url = await qobuzService.getDownloadUrl(
+            task.trackId,
+            task.quality,
+          );
           await downloadManager.executeDownload(task, url);
         } catch (e) {
           await db.updateTask(task.copyWith(status: 'failed'));
@@ -48,10 +60,7 @@ void callbackDispatcher() {
 
 class BackgroundWorker {
   static void initialize() {
-    Workmanager().initialize(
-      callbackDispatcher,
-      isInDebugMode: true,
-    );
+    Workmanager().initialize(callbackDispatcher, isInDebugMode: true);
   }
 
   static void triggerDownloadQueue() {

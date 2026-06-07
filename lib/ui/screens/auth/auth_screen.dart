@@ -111,7 +111,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // ── Brand Logo ──
                     Center(
                       child: Image.asset(
                         Theme.of(context).brightness == Brightness.dark
@@ -123,7 +122,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                     ),
                     const SizedBox(height: 32),
 
-                    // ── Credential Inputs Frosted Card ──
                     GlassmorphicContainer(
                       borderRadius: 24,
                       blur: 20,
@@ -201,7 +199,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                           ),
                           const SizedBox(height: 24),
 
-                          // ── Error ──
                           if (_errorMessage != null) ...[
                             Container(
                               padding: const EdgeInsets.all(12),
@@ -231,7 +228,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                             const SizedBox(height: 16),
                           ],
 
-                          // ── Login button ──
                           FilledButton(
                             onPressed: _isLoading ? null : _handleLogin,
                             style: FilledButton.styleFrom(

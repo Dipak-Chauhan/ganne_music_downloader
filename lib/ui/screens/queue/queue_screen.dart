@@ -16,10 +16,12 @@ class QueueScreen extends ConsumerStatefulWidget {
 class _QueueScreenState extends ConsumerState<QueueScreen> {
   ActiveDownloadInfo? _zipInfo;
   StreamSubscription? _zipSub;
+  late final Stream<List<DownloadTask>> _tasksStream;
 
   @override
   void initState() {
     super.initState();
+    _tasksStream = ref.read(databaseProvider).watchAllTasks();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final service = ref.read(downloadServiceProvider);
       // Seed initial value
@@ -81,7 +83,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
                   ),
                 );
               } else if (value == 'clear_completed') {
-                db.clearCompleted();
+                db.archiveCompleted();
               }
             },
             itemBuilder: (_) => const [
@@ -98,7 +100,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
         ],
       ),
       body: StreamBuilder<List<DownloadTask>>(
-        stream: db.watchAllTasks(),
+        stream: _tasksStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -119,7 +121,9 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
             );
           }
 
-          final dbTasks = snapshot.data ?? [];
+          final dbTasks = (snapshot.data ?? [])
+              .where((task) => task.status != 'library')
+              .toList();
 
           // Build combined list: zip task at top + db tasks
           final List<Widget> items = [];
@@ -162,7 +166,10 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
           }
 
           return ListView(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 160),
             children: items,
           );
         },
@@ -393,7 +400,13 @@ class _QueueItemCardState extends ConsumerState<_QueueItemCard> {
         ),
         child: Icon(Icons.delete_outline, color: cs.onErrorContainer),
       ),
-      onDismissed: (_) => db.deleteTask(task.id),
+      onDismissed: (_) {
+        if (task.status == 'completed') {
+          db.archiveTask(task.id);
+        } else {
+          db.deleteTask(task.id);
+        }
+      },
       child: Card(
         margin: const EdgeInsets.symmetric(vertical: 4),
         child: Column(

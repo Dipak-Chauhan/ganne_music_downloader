@@ -22,7 +22,10 @@ class AlbumCard extends StatelessWidget {
               child: CachedNetworkImage(
                 imageUrl: album.getCoverLargeUrl(),
                 fit: BoxFit.cover,
-                errorWidget: (context, url, error) => const Icon(Icons.album, size: 50),
+                memCacheWidth: 250, // Optimized cache size
+                memCacheHeight: 250,
+                errorWidget: (context, url, error) =>
+                    const Icon(Icons.album, size: 50),
               ),
             ),
             Padding(
@@ -30,8 +33,18 @@ class AlbumCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(album.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  Text(album.artist?.name ?? 'Unknown Artist', maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),
+                  Text(
+                    album.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    album.artist?.name ?? 'Unknown Artist',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                 ],
               ),
             ),

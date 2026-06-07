@@ -29,14 +29,59 @@ class AppDatabase extends _$AppDatabase {
   );
 
   Stream<List<DownloadTask>> watchAllTasks() => select(downloadTasks).watch();
-  Stream<List<DownloadTask>> watchCompletedTasks() => 
-      (select(downloadTasks)..where((t) => t.status.equals('completed'))).watch();
+  Stream<List<DownloadTask>> watchCompletedTasks() =>
+      (select(downloadTasks)..where(
+            (t) => t.status.equals('completed') | t.status.equals('library'),
+          ))
+          .watch();
   Future<List<DownloadTask>> getAllTasks() => select(downloadTasks).get();
-  Future<int> insertTask(DownloadTasksCompanion task) => into(downloadTasks).insert(task);
-  Future<bool> updateTask(DownloadTask task) => update(downloadTasks).replace(task);
-  Future<int> deleteTask(int id) => (delete(downloadTasks)..where((t) => t.id.equals(id))).go();
-  Future<int> clearCompleted() => (delete(downloadTasks)..where((t) => t.status.equals('completed'))).go();
-  Future<int> clearFailed() => (delete(downloadTasks)..where((t) => t.status.equals('failed'))).go();
+  Future<int> insertTask(DownloadTasksCompanion task) =>
+      into(downloadTasks).insert(task);
+
+  /// Check if a track is already queued (pending or downloading)
+  Future<bool> isTrackInQueue(int trackId) async {
+    final query = select(downloadTasks)
+      ..where(
+        (t) =>
+            t.trackId.equals(trackId) &
+            (t.status.equals('pending') | t.status.equals('downloading')),
+      );
+    final results = await query.get();
+    return results.isNotEmpty;
+  }
+
+  /// Check if a track was already downloaded (completed or in library)
+  Future<bool> isTrackCompleted(int trackId) async {
+    final query = select(downloadTasks)
+      ..where(
+        (t) =>
+            t.trackId.equals(trackId) &
+            (t.status.equals('completed') | t.status.equals('library')),
+      );
+    final results = await query.get();
+    return results.isNotEmpty;
+  }
+
+  Future<bool> updateTask(DownloadTask task) =>
+      update(downloadTasks).replace(task);
+  Future<int> deleteTask(int id) =>
+      (delete(downloadTasks)..where((t) => t.id.equals(id))).go();
+  Future<int> clearCompleted() =>
+      (delete(downloadTasks)..where(
+            (t) => t.status.equals('completed') | t.status.equals('library'),
+          ))
+          .go();
+  Future<int> clearFailed() =>
+      (delete(downloadTasks)..where((t) => t.status.equals('failed'))).go();
+  Future<int> clearAllTasks() => delete(downloadTasks).go();
+  Future<int> archiveCompleted() =>
+      (update(downloadTasks)..where((t) => t.status.equals('completed'))).write(
+        const DownloadTasksCompanion(status: Value('library')),
+      );
+  Future<int> archiveTask(int id) =>
+      (update(downloadTasks)..where((t) => t.id.equals(id))).write(
+        const DownloadTasksCompanion(status: Value('library')),
+      );
 }
 
 LazyDatabase _openConnection() {

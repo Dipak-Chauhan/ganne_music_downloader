@@ -9,7 +9,8 @@ class DownloadManager {
   final Dio _apiDio; // For API calls (has Qobuz headers)
   final AppDatabase _db;
   final FlutterLocalNotificationsPlugin _notifications;
-  final Dio _downloadDio = Dio(); // Clean Dio for CDN download (no Qobuz base URL)
+  final Dio _downloadDio =
+      Dio(); // Clean Dio for CDN download (no Qobuz base URL)
 
   DownloadManager(this._apiDio, this._db, this._notifications);
 
@@ -24,10 +25,13 @@ class DownloadManager {
     if (!await saveDir.exists()) {
       await saveDir.create(recursive: true);
     }
-    
+
     // Construct final file path
     final ext = task.quality == '5' ? '.mp3' : '.flac';
-    final fileName = "${task.trackTitle}$ext".replaceAll(RegExp(r'[\\/:*?"<>|]'), '');
+    final fileName = "${task.trackTitle}$ext".replaceAll(
+      RegExp(r'[\\/:*?"<>|]'),
+      '',
+    );
     final finalPath = p.join(saveDir.path, fileName);
     final tempPath = "$finalPath.part";
 
@@ -48,12 +52,14 @@ class DownloadManager {
         onReceiveProgress: (count, total) async {
           final current = downloaded + count;
           final totalBytes = total != -1 ? downloaded + total : -1;
-          
-          await _db.updateTask(task.copyWith(
-            downloadedBytes: current,
-            totalBytes: totalBytes,
-            status: 'downloading',
-          ));
+
+          await _db.updateTask(
+            task.copyWith(
+              downloadedBytes: current,
+              totalBytes: totalBytes,
+              status: 'downloading',
+            ),
+          );
 
           if (totalBytes > 0) {
             final progress = (current / totalBytes * 100).toInt();
@@ -64,11 +70,13 @@ class DownloadManager {
 
       // Rename temp file to final
       await tempFile.rename(finalPath);
-      await _db.updateTask(task.copyWith(
-        status: 'completed',
-        downloadedBytes: task.totalBytes,
-        savePath: drift.Value(finalPath),
-      ));
+      await _db.updateTask(
+        task.copyWith(
+          status: 'completed',
+          downloadedBytes: task.totalBytes,
+          savePath: drift.Value(finalPath),
+        ),
+      );
       _showCompletionNotification(task.id, task.trackTitle);
     } catch (e) {
       await _db.updateTask(task.copyWith(status: 'failed'));
@@ -94,8 +102,8 @@ class DownloadManager {
           progress: progress,
           ongoing: true,
           onlyAlertOnce: true,
-        )
-      )
+        ),
+      ),
     );
   }
 
@@ -111,8 +119,8 @@ class DownloadManager {
           channelDescription: 'Active Downloads',
           importance: Importance.defaultImportance,
           priority: Priority.defaultPriority,
-        )
-      )
+        ),
+      ),
     );
   }
 
@@ -128,8 +136,8 @@ class DownloadManager {
           channelDescription: 'Active Downloads',
           importance: Importance.defaultImportance,
           priority: Priority.defaultPriority,
-        )
-      )
+        ),
+      ),
     );
   }
 }

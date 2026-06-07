@@ -12,7 +12,8 @@ class CryptoUtils {
     required int timestamp,
     required String appSecret,
   }) {
-    final rawString = 'trackgetFileUrlformat_id${qualityId}intentstreamtrack_id$trackId$timestamp$appSecret';
+    final rawString =
+        'trackgetFileUrlformat_id${qualityId}intentstreamtrack_id$trackId$timestamp$appSecret';
     return generateMd5(rawString);
   }
 }
