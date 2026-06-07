@@ -74,6 +74,8 @@ dev_dependencies:
   build_runner: ^2.13.1
   drift_dev: ^2.32.1
   json_serializable: ^6.13.1
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -116,3 +118,20 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/app_icon.png"
+  remove_alpha_ios: true
+
+flutter_native_splash:
+  color: "#000000"
+  color_dark: "#000000"
+  image: "assets/images/splash_icon.png"
+  android_12:
+    image: "assets/images/splash_icon.png"
+    color: "#000000"
+    color_dark: "#000000"
+
+
