@@ -147,22 +147,28 @@ class DownloadService {
   static String extensionFromMime(String? mimeType, String qualityId) {
     switch (mimeType?.toLowerCase()) {
       case 'audio/flac':
+      case 'audio/x-flac':
         return '.flac';
       case 'audio/mpeg':
+      case 'audio/mp3':
         return '.mp3';
+      case 'audio/mp4':
+      case 'audio/aac':
+      case 'audio/x-m4a':
+      case 'audio/m4a':
+        return '.m4a';
+      case 'audio/wav':
+      case 'audio/x-wav':
+        return '.wav';
       case 'audio/vorbis':
       case 'audio/ogg':
         return '.ogg';
       default:
-        // Fallback to the old behaviour when the API doesn't provide MIME
         return qualityId == '5' ? '.mp3' : '.flac';
     }
   }
 
-  /// Read the first few bytes of a file and detect the real audio format.
-  /// This is the ground-truth check — magic bytes never lie.
   static String detectExtensionFromBytes(Uint8List header) {
-    // FLAC: starts with "fLaC" (0x66 0x4C 0x61 0x43)
     if (header.length >= 4 &&
         header[0] == 0x66 &&
         header[1] == 0x4C &&
@@ -170,20 +176,29 @@ class DownloadService {
         header[3] == 0x43) {
       return '.flac';
     }
-    // MP3 with ID3 tag: starts with "ID3" (0x49 0x44 0x33)
+    if (header.length >= 8 &&
+        header[4] == 0x66 &&
+        header[5] == 0x74 &&
+        header[6] == 0x79 &&
+        header[7] == 0x70) {
+      return '.m4a';
+    }
     if (header.length >= 3 &&
         header[0] == 0x49 &&
         header[1] == 0x44 &&
         header[2] == 0x33) {
       return '.mp3';
     }
-    // MP3 MPEG sync word: 0xFF followed by 0xE0+ (11 sync bits set)
     if (header.length >= 2 &&
         header[0] == 0xFF &&
         (header[1] & 0xE0) == 0xE0) {
       return '.mp3';
     }
-    // OGG: starts with "OggS" (0x4F 0x67 0x67 0x53)
+    if (header.length >= 2 &&
+        header[0] == 0xFF &&
+        (header[1] & 0xF6) == 0xF0) {
+      return '.aac';
+    }
     if (header.length >= 4 &&
         header[0] == 0x4F &&
         header[1] == 0x67 &&
@@ -191,7 +206,13 @@ class DownloadService {
         header[3] == 0x53) {
       return '.ogg';
     }
-    // Unknown — return FLAC as safe default
+    if (header.length >= 4 &&
+        header[0] == 0x52 &&
+        header[1] == 0x49 &&
+        header[2] == 0x46 &&
+        header[3] == 0x46) {
+      return '.wav';
+    }
     return '.flac';
   }
 
@@ -321,14 +342,10 @@ class DownloadService {
       // Use the MIME type from the API as the primary source for extension
       var ext = extensionFromMime(downloadInfo.mimeType, task.quality);
       debugPrint('MIME from API: ${downloadInfo.mimeType} → extension: $ext');
-      final fileName = formatFileName(
-        task.artistName,
-        task.trackTitle,
-        task.trackVersion,
-        ext,
-      );
-      var finalPath = p.join(saveDir.path, fileName);
-      final tempPath = "$finalPath.part";
+
+      final tempDir = await getTemporaryDirectory();
+      var localFinalPath = p.join(tempDir.path, 'download_${task.trackId}$ext');
+      final localTempPath = '$localFinalPath.part';
 
       final cancelToken = CancelToken();
       _cancelTokens[task.trackId] = cancelToken;
@@ -337,7 +354,7 @@ class DownloadService {
 
       await _downloadDio.download(
         fileUrl,
-        tempPath,
+        localTempPath,
         cancelToken: cancelToken,
         onReceiveProgress: (count, total) {
           if (total > 0) {
@@ -370,13 +387,11 @@ class DownloadService {
         },
       );
 
-      // Validate the actual file format using magic bytes. If the server
-      // delivered a different codec than expected (e.g. MP3 instead of FLAC
-      // due to subscription limits), correct the extension before renaming.
-      final tempFile = File(tempPath);
+      // Validate the actual file format using magic bytes.
+      final localTempFile = File(localTempPath);
       try {
-        final raf = await tempFile.open(mode: FileMode.read);
-        final headerBytes = await raf.read(4);
+        final raf = await localTempFile.open(mode: FileMode.read);
+        final headerBytes = await raf.read(12);
         await raf.close();
         final detectedExt = detectExtensionFromBytes(headerBytes);
         if (detectedExt != ext) {
@@ -385,20 +400,14 @@ class DownloadService {
             'Correcting file extension.',
           );
           ext = detectedExt;
-          final correctedFileName = formatFileName(
-            task.artistName,
-            task.trackTitle,
-            task.trackVersion,
-            ext,
-          );
-          finalPath = p.join(saveDir.path, correctedFileName);
+          localFinalPath = p.join(tempDir.path, 'download_${task.trackId}$ext');
         }
       } catch (e) {
         debugPrint('Magic-byte detection failed, using MIME-based ext: $e');
       }
 
-      // Rename the download file from tempPath to finalPath
-      await tempFile.rename(finalPath);
+      // Rename temp file in local temp folder
+      final finalLocalFile = await localTempFile.rename(localFinalPath);
 
       final applyMetadataRaw = await _secureStorage.readKey('setting_metadata');
       final shouldApplyMetadata = applyMetadataRaw != 'false';
@@ -412,7 +421,6 @@ class DownloadService {
                 .get(Uri.parse(task.coverUrl))
                 .timeout(const Duration(seconds: 10));
             if (response.statusCode == 200) {
-              final tempDir = await getTemporaryDirectory();
               coverFile = File(
                 p.join(tempDir.path, 'cover_${task.trackId}.jpg'),
               );
@@ -423,9 +431,9 @@ class DownloadService {
           }
         }
 
-        // B. Apply metadata to renamed file
+        // B. Apply metadata to local file
         try {
-          await _applyMetadata(File(finalPath), coverFile, task);
+          await _applyMetadata(finalLocalFile, coverFile, task);
         } catch (e) {
           debugPrint('Failed to apply metadata: $e');
         }
@@ -441,6 +449,20 @@ class DownloadService {
           }
         }
       }
+
+      // Copy completed and tagged file to final public directory (cross-device safe)
+      final fileName = formatFileName(
+        task.artistName,
+        task.trackTitle,
+        task.trackVersion,
+        ext,
+      );
+      final finalPath = p.join(saveDir.path, fileName);
+      await finalLocalFile.copy(finalPath);
+
+      try {
+        await finalLocalFile.delete();
+      } catch (_) {}
 
       await _db.updateTask(
         task.copyWith(status: 'completed', savePath: drift.Value(finalPath)),
@@ -632,7 +654,7 @@ class DownloadService {
           // Validate with magic bytes and correct extension if needed
           try {
             final raf = await File(tempTrackPath).open(mode: FileMode.read);
-            final headerBytes = await raf.read(4);
+            final headerBytes = await raf.read(12);
             await raf.close();
             final detectedExt = detectExtensionFromBytes(headerBytes);
             if (detectedExt != trackExt) {

@@ -26,6 +26,7 @@ void callbackDispatcher() {
         apiClient.dio,
         db,
         notificationsPlugin,
+        secureStorage,
       );
 
       // Get pending tasks up to limit
