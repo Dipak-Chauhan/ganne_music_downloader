@@ -41,11 +41,11 @@ void callbackDispatcher() {
 
       for (var task in pendingTasks) {
         try {
-          final url = await qobuzService.getDownloadUrl(
+          final downloadInfo = await qobuzService.getDownloadUrl(
             task.trackId,
             task.quality,
           );
-          await downloadManager.executeDownload(task, url);
+          await downloadManager.executeDownload(task, downloadInfo);
         } catch (e) {
           await db.updateTask(task.copyWith(status: 'failed'));
         }

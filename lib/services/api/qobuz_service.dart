@@ -5,6 +5,16 @@ import '../../data/secure_storage/secure_storage.dart';
 import 'api_client.dart';
 import '../../core/exceptions/app_exceptions.dart';
 
+/// Holds the download URL and the actual MIME type returned by the Qobuz API.
+/// The MIME type tells us the real audio format the server is delivering,
+/// which may differ from what the quality setting implies (e.g. when the
+/// user's subscription tier caps the quality).
+class DownloadUrlInfo {
+  final String url;
+  final String? mimeType;
+  DownloadUrlInfo({required this.url, this.mimeType});
+}
+
 class QobuzService {
   final ApiClient _apiClient;
   final SecureStorage _secureStorage;
@@ -45,7 +55,7 @@ class QobuzService {
     }
   }
 
-  Future<String> getDownloadUrl(int trackId, String qualityId) async {
+  Future<DownloadUrlInfo> getDownloadUrl(int trackId, String qualityId) async {
     try {
       final credentials = await _secureStorage.getCredentials();
       final appSecret = credentials['appSecret'];
@@ -72,7 +82,9 @@ class QobuzService {
         },
       );
 
-      return response.data['url'];
+      final url = response.data['url'] as String;
+      final mimeType = response.data['mime_type'] as String?;
+      return DownloadUrlInfo(url: url, mimeType: mimeType);
     } on DioException catch (e) {
       throw ApiException(
         e.message ?? 'Unknown API Error',
@@ -81,3 +93,4 @@ class QobuzService {
     }
   }
 }
+

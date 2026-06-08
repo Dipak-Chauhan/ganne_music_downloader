@@ -1,9 +1,12 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' as drift;
+import 'package:flutter/foundation.dart';
 import '../../data/local/database.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:path/path.dart' as p;
+import '../api/qobuz_service.dart' show DownloadUrlInfo;
+import 'download_service.dart' show DownloadService;
 
 class DownloadManager {
   final Dio _apiDio; // For API calls (has Qobuz headers)
@@ -14,7 +17,7 @@ class DownloadManager {
 
   DownloadManager(this._apiDio, this._db, this._notifications);
 
-  Future<void> executeDownload(DownloadTask task, String fileUrl) async {
+  Future<void> executeDownload(DownloadTask task, DownloadUrlInfo downloadInfo) async {
     final savePath = task.savePath;
     if (savePath == null || savePath.isEmpty) {
       await _db.updateTask(task.copyWith(status: 'failed'));
@@ -26,13 +29,14 @@ class DownloadManager {
       await saveDir.create(recursive: true);
     }
 
-    // Construct final file path
-    final ext = task.quality == '5' ? '.mp3' : '.flac';
+    // Determine extension from MIME type, with quality-based fallback
+    var ext = DownloadService.extensionFromMime(downloadInfo.mimeType, task.quality);
+    debugPrint('DownloadManager MIME: ${downloadInfo.mimeType} → ext: $ext');
     final fileName = "${task.trackTitle}$ext".replaceAll(
       RegExp(r'[\\/:*?"<>|]'),
       '',
     );
-    final finalPath = p.join(saveDir.path, fileName);
+    var finalPath = p.join(saveDir.path, fileName);
     final tempPath = "$finalPath.part";
 
     int downloaded = 0;
@@ -44,7 +48,7 @@ class DownloadManager {
 
       // Use a clean Dio instance for CDN download — the fileUrl is a full HTTPS URL
       await _downloadDio.download(
-        fileUrl,
+        downloadInfo.url,
         tempPath,
         options: Options(
           headers: downloaded > 0 ? {'Range': 'bytes=$downloaded-'} : null,
@@ -68,8 +72,31 @@ class DownloadManager {
         },
       );
 
+      // Validate with magic bytes and correct extension if needed
+      final downloadedFile = File(tempPath);
+      try {
+        final raf = await downloadedFile.open(mode: FileMode.read);
+        final headerBytes = await raf.read(4);
+        await raf.close();
+        final detectedExt = DownloadService.detectExtensionFromBytes(headerBytes);
+        if (detectedExt != ext) {
+          debugPrint(
+            'DownloadManager magic-byte mismatch! Expected $ext but '
+            'detected $detectedExt. Correcting.',
+          );
+          ext = detectedExt;
+          final correctedFileName = "${task.trackTitle}$ext".replaceAll(
+            RegExp(r'[\\/:*?"<>|]'),
+            '',
+          );
+          finalPath = p.join(saveDir.path, correctedFileName);
+        }
+      } catch (e) {
+        debugPrint('DownloadManager magic-byte detection failed: $e');
+      }
+
       // Rename temp file to final
-      await tempFile.rename(finalPath);
+      await downloadedFile.rename(finalPath);
       await _db.updateTask(
         task.copyWith(
           status: 'completed',

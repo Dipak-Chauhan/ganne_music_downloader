@@ -141,6 +141,60 @@ class DownloadService {
     );
   }
 
+  /// Determine the correct file extension from the MIME type returned by the
+  /// Qobuz API. Falls back to the quality-based guess when the MIME type is
+  /// absent or unrecognised.
+  static String extensionFromMime(String? mimeType, String qualityId) {
+    switch (mimeType?.toLowerCase()) {
+      case 'audio/flac':
+        return '.flac';
+      case 'audio/mpeg':
+        return '.mp3';
+      case 'audio/vorbis':
+      case 'audio/ogg':
+        return '.ogg';
+      default:
+        // Fallback to the old behaviour when the API doesn't provide MIME
+        return qualityId == '5' ? '.mp3' : '.flac';
+    }
+  }
+
+  /// Read the first few bytes of a file and detect the real audio format.
+  /// This is the ground-truth check — magic bytes never lie.
+  static String detectExtensionFromBytes(Uint8List header) {
+    // FLAC: starts with "fLaC" (0x66 0x4C 0x61 0x43)
+    if (header.length >= 4 &&
+        header[0] == 0x66 &&
+        header[1] == 0x4C &&
+        header[2] == 0x61 &&
+        header[3] == 0x43) {
+      return '.flac';
+    }
+    // MP3 with ID3 tag: starts with "ID3" (0x49 0x44 0x33)
+    if (header.length >= 3 &&
+        header[0] == 0x49 &&
+        header[1] == 0x44 &&
+        header[2] == 0x33) {
+      return '.mp3';
+    }
+    // MP3 MPEG sync word: 0xFF followed by 0xE0+ (11 sync bits set)
+    if (header.length >= 2 &&
+        header[0] == 0xFF &&
+        (header[1] & 0xE0) == 0xE0) {
+      return '.mp3';
+    }
+    // OGG: starts with "OggS" (0x4F 0x67 0x67 0x53)
+    if (header.length >= 4 &&
+        header[0] == 0x4F &&
+        header[1] == 0x67 &&
+        header[2] == 0x67 &&
+        header[3] == 0x53) {
+      return '.ogg';
+    }
+    // Unknown — return FLAC as safe default
+    return '.flac';
+  }
+
   /// Queue a track for download.
   /// Returns 'queued', 'already_in_queue', or 'already_downloaded'.
   Future<String> queueTrack({
@@ -253,24 +307,27 @@ class DownloadService {
         );
       }
 
-      final fileUrl = await _qobuzService.getDownloadUrl(
+      final downloadInfo = await _qobuzService.getDownloadUrl(
         task.trackId,
         task.quality,
       );
+      final fileUrl = downloadInfo.url;
 
       final savePath = task.savePath;
       if (savePath == null || savePath.isEmpty) throw Exception('No save path');
       final saveDir = Directory(savePath);
       if (!await saveDir.exists()) await saveDir.create(recursive: true);
 
-      final ext = task.quality == '5' ? '.mp3' : '.flac';
+      // Use the MIME type from the API as the primary source for extension
+      var ext = extensionFromMime(downloadInfo.mimeType, task.quality);
+      debugPrint('MIME from API: ${downloadInfo.mimeType} → extension: $ext');
       final fileName = formatFileName(
         task.artistName,
         task.trackTitle,
         task.trackVersion,
         ext,
       );
-      final finalPath = p.join(saveDir.path, fileName);
+      var finalPath = p.join(saveDir.path, fileName);
       final tempPath = "$finalPath.part";
 
       final cancelToken = CancelToken();
@@ -313,8 +370,35 @@ class DownloadService {
         },
       );
 
-      // 1. Rename the download file from tempPath to finalPath (done first for consistency)
-      await File(tempPath).rename(finalPath);
+      // Validate the actual file format using magic bytes. If the server
+      // delivered a different codec than expected (e.g. MP3 instead of FLAC
+      // due to subscription limits), correct the extension before renaming.
+      final tempFile = File(tempPath);
+      try {
+        final raf = await tempFile.open(mode: FileMode.read);
+        final headerBytes = await raf.read(4);
+        await raf.close();
+        final detectedExt = detectExtensionFromBytes(headerBytes);
+        if (detectedExt != ext) {
+          debugPrint(
+            'Magic-byte mismatch! Expected $ext but detected $detectedExt. '
+            'Correcting file extension.',
+          );
+          ext = detectedExt;
+          final correctedFileName = formatFileName(
+            task.artistName,
+            task.trackTitle,
+            task.trackVersion,
+            ext,
+          );
+          finalPath = p.join(saveDir.path, correctedFileName);
+        }
+      } catch (e) {
+        debugPrint('Magic-byte detection failed, using MIME-based ext: $e');
+      }
+
+      // Rename the download file from tempPath to finalPath
+      await tempFile.rename(finalPath);
 
       final applyMetadataRaw = await _secureStorage.readKey('setting_metadata');
       final shouldApplyMetadata = applyMetadataRaw != 'false';
@@ -487,7 +571,6 @@ class DownloadService {
         return;
       }
 
-      final ext = qualityId == '5' ? '.mp3' : '.flac';
 
       // Download Cover
       File? coverFile;
@@ -528,20 +611,46 @@ class DownloadService {
           debugPrint(
             '[ZIP] Downloading track ${completed + 1}/${tracks.length}: ${track.title}',
           );
-          final fileUrl = await _qobuzService.getDownloadUrl(
+          final downloadInfo = await _qobuzService.getDownloadUrl(
             track.id,
             qualityId,
           );
           debugPrint('[ZIP] Got download URL for track ${track.id}');
 
+          // Determine correct extension from MIME type
+          var trackExt = extensionFromMime(downloadInfo.mimeType, qualityId);
+
           final artistName =
               track.performer?.name ?? album.artist?.name ?? 'Unknown';
-          final tempTrackPath = p.join(
+          var tempTrackPath = p.join(
             albumTempDir.path,
-            formatFileName(artistName, track.title, track.version, ext),
+            formatFileName(artistName, track.title, track.version, trackExt),
           );
 
-          await _downloadDio.download(fileUrl, tempTrackPath);
+          await _downloadDio.download(downloadInfo.url, tempTrackPath);
+
+          // Validate with magic bytes and correct extension if needed
+          try {
+            final raf = await File(tempTrackPath).open(mode: FileMode.read);
+            final headerBytes = await raf.read(4);
+            await raf.close();
+            final detectedExt = detectExtensionFromBytes(headerBytes);
+            if (detectedExt != trackExt) {
+              debugPrint(
+                '[ZIP] Magic-byte mismatch for ${track.title}: '
+                'expected $trackExt, detected $detectedExt. Renaming.',
+              );
+              final correctedPath = p.join(
+                albumTempDir.path,
+                formatFileName(artistName, track.title, track.version, detectedExt),
+              );
+              await File(tempTrackPath).rename(correctedPath);
+              tempTrackPath = correctedPath;
+              trackExt = detectedExt;
+            }
+          } catch (e) {
+            debugPrint('[ZIP] Magic-byte check failed for ${track.title}: $e');
+          }
 
           final downloadedFile = File(tempTrackPath);
           final fileSize = await downloadedFile.length();
