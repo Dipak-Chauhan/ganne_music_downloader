@@ -13,7 +13,11 @@ class QueueScreen extends ConsumerStatefulWidget {
   ConsumerState<QueueScreen> createState() => _QueueScreenState();
 }
 
-class _QueueScreenState extends ConsumerState<QueueScreen> {
+class _QueueScreenState extends ConsumerState<QueueScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   ActiveDownloadInfo? _zipInfo;
   StreamSubscription? _zipSub;
   late final Stream<List<DownloadTask>> _tasksStream;
@@ -49,6 +53,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final db = ref.watch(databaseProvider);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;

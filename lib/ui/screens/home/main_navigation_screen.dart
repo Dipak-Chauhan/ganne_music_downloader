@@ -90,61 +90,60 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: isDark ? cs.surface : cs.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          border: Border(
-            top: BorderSide(color: cs.outlineVariant.withAlpha(40), width: 0.5),
-          ),
-        ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          child: NavigationBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            selectedIndex: _currentIndex,
-            onDestinationSelected: (idx) {
-              if ((_currentIndex - idx).abs() == 1) {
-                _pageController.animateToPage(
-                  idx,
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOutCubic,
-                );
-              } else {
-                _pageController.jumpToPage(idx);
-              }
-              setState(() => _currentIndex = idx);
-            },
-            animationDuration: const Duration(milliseconds: 300),
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                selectedIcon: Icon(Icons.home),
-                label: 'Home',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.search_outlined),
-                selectedIcon: Icon(Icons.search),
-                label: 'Search',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.downloading_outlined),
-                selectedIcon: Icon(Icons.downloading),
-                label: 'Queue',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.library_music_outlined),
-                selectedIcon: Icon(Icons.library_music),
-                label: 'Library',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.settings_outlined),
-                selectedIcon: Icon(Icons.settings),
-                label: 'Settings',
-              ),
-            ],
-          ),
+      bottomNavigationBar: GlassmorphicContainer(
+        borderRadius: 20,
+        blur: 20,
+        color: isDark ? cs.surface.withAlpha(140) : cs.surface.withAlpha(180),
+        borderColor: cs.outlineVariant.withAlpha(40),
+        borderWidth: 0.5,
+        padding: EdgeInsets.zero,
+        margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        boxShadow: const [],
+        child: NavigationBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          selectedIndex: _currentIndex,
+          onDestinationSelected: (idx) {
+            if ((_currentIndex - idx).abs() == 1) {
+              _pageController.animateToPage(
+                idx,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+              );
+            } else {
+              _pageController.jumpToPage(idx);
+            }
+            setState(() => _currentIndex = idx);
+          },
+          animationDuration: const Duration(milliseconds: 300),
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home),
+              label: 'Home',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.search_outlined),
+              selectedIcon: Icon(Icons.search),
+              label: 'Search',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.downloading_outlined),
+              selectedIcon: Icon(Icons.downloading),
+              label: 'Queue',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.library_music_outlined),
+              selectedIcon: Icon(Icons.library_music),
+              label: 'Library',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.settings_outlined),
+              selectedIcon: Icon(Icons.settings),
+              label: 'Settings',
+            ),
+          ],
         ),
       ),
     );

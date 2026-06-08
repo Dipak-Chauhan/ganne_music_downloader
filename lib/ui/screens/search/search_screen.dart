@@ -35,8 +35,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   late final AnimationController _logoController;
   late final Animation<double> _logoScale;
 
-  Map<int, double> _downloadProgress = {};
-  StreamSubscription? _progressSub;
+  List<QobuzTrack> _filteredTracks = [];
+  List<QobuzAlbum> _filteredAlbums = [];
 
   List<String> _searchHistory = [];
   final bool _hiResOnly = false;
@@ -117,18 +117,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     _searchFocus.dispose();
     _logoController.dispose();
     _scrollController.dispose();
-    _progressSub?.cancel();
     _debounce?.cancel();
     super.dispose();
   }
 
-  void _subscribeToProgress() {
-    _progressSub?.cancel();
-    final service = ref.read(downloadServiceProvider);
-    _downloadProgress = service.currentProgress;
-    _progressSub = service.progressStream.listen((progress) {
-      if (mounted) setState(() => _downloadProgress = progress);
-    });
+  void _updateFilteredData() {
+    _filteredAlbums = _getFilteredAlbums();
+    _filteredTracks = _getFilteredTracks();
   }
 
   void _onSearchChanged() {
@@ -228,6 +223,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       setState(() {
         _results = results;
         _isLoading = false;
+        _updateFilteredData();
       });
     } catch (e) {
       setState(() {
@@ -301,6 +297,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           );
         }
         _isLoadingMore = false;
+        _updateFilteredData();
       });
     } catch (_) {
       setState(() => _isLoadingMore = false);
@@ -316,6 +313,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       _error = null;
       _searchField = 'albums';
       _showSuggestions = false;
+      _updateFilteredData();
     });
   }
 
@@ -330,7 +328,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   }
 
   void _downloadTrack(QobuzTrack track) async {
-    _subscribeToProgress();
     final settings = ref.read(appSettingsProvider);
 
     // Format complex artist string
@@ -427,7 +424,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   }
 
   void _downloadAlbumIndividual(QobuzAlbum album) async {
-    _subscribeToProgress();
     final settings = ref.read(appSettingsProvider);
     try {
       final data = await ref.read(qobuzServiceProvider).getAlbumInfo(album.id!);
@@ -1006,6 +1002,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         setState(() {
           _searchSortOrder = value;
           _showSortMenu = false;
+          _updateFilteredData();
         });
       },
       child: Padding(
@@ -1058,7 +1055,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   }
 
   Widget _buildAlbumsGrid(ColorScheme cs, TextTheme tt) {
-    final albums = _getFilteredAlbums();
+    final albums = _filteredAlbums;
     if (albums.isEmpty) {
       return SliverFillRemaining(
         hasScrollBody: false,
@@ -1122,7 +1119,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   }
 
   Widget _buildTracksList(ColorScheme cs, TextTheme tt) {
-    final tracks = _getFilteredTracks();
+    final tracks = _filteredTracks;
     if (tracks.isEmpty) {
       return SliverFillRemaining(
         hasScrollBody: false,
@@ -1139,122 +1136,177 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate((context, index) {
           final track = tracks[index];
-          final coverUrl = track.album?.getCoverLargeUrl() ?? '';
-          final progress = _downloadProgress[track.id];
-          final isDownloading =
-              progress != null && progress >= 0 && progress < 1.0;
-          final isCompleted = progress != null && progress >= 1.0;
-          final isFailed = progress != null && progress < 0;
+          return _TrackCard(
+            track: track,
+            formatDuration: _formatDuration,
+            onDownload: () => _downloadTrack(track),
+          );
+        }, childCount: tracks.length),
+      ),
+    );
+  }
+}
 
-          return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Column(
-              children: [
-                InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () {
-                    if (track.album != null) {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              AlbumDetailScreen(album: track.album!),
-                        ),
-                      );
-                    }
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
-                    child: Row(
+class _TrackCard extends ConsumerStatefulWidget {
+  final QobuzTrack track;
+  final String Function(int?) formatDuration;
+  final VoidCallback onDownload;
+
+  const _TrackCard({
+    required this.track,
+    required this.formatDuration,
+    required this.onDownload,
+  });
+
+  @override
+  ConsumerState<_TrackCard> createState() => _TrackCardState();
+}
+
+class _TrackCardState extends ConsumerState<_TrackCard> {
+  StreamSubscription? _progressSub;
+  double? _progress;
+
+  @override
+  void initState() {
+    super.initState();
+    final service = ref.read(downloadServiceProvider);
+    _progress = service.currentProgress[widget.track.id];
+    _progressSub = service.progressStream.listen((progressMap) {
+      final newProgress = progressMap[widget.track.id];
+      if (newProgress != _progress) {
+        if (mounted) {
+          setState(() {
+            _progress = newProgress;
+          });
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _progressSub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final track = widget.track;
+    final coverUrl = track.album?.getCoverLargeUrl() ?? '';
+    final progress = _progress;
+    final isDownloading =
+        progress != null && progress >= 0 && progress < 1.0;
+    final isCompleted = progress != null && progress >= 1.0;
+    final isFailed = progress != null && progress < 0;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Column(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () {
+              if (track.album != null) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        AlbumDetailScreen(album: track.album!),
+                  ),
+                );
+              }
+            },
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: coverUrl.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: coverUrl,
+                            width: 52,
+                            height: 52,
+                            fit: BoxFit.cover,
+                            memCacheWidth: 104,
+                            memCacheHeight: 104,
+                            placeholder: (context, url) =>
+                                _CoverPlaceholder(cs: cs),
+                          )
+                        : _CoverPlaceholder(cs: cs),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: coverUrl.isNotEmpty
-                              ? CachedNetworkImage(
-                                  imageUrl: coverUrl,
-                                  width: 52,
-                                  height: 52,
-                                  fit: BoxFit.cover,
-                                  memCacheWidth: 104, // Optimized cache size
-                                  memCacheHeight: 104,
-                                  placeholder: (_, _a) =>
-                                      _CoverPlaceholder(cs: cs),
-                                )
-                              : _CoverPlaceholder(cs: cs),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                track.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: tt.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${track.performer?.name ?? track.album?.artist?.name ?? 'Unknown'} • ${_formatDuration(track.duration)}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: tt.bodySmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
+                        Text(
+                          track.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: tt.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        if (track.hires == true)
-                          Container(
-                            margin: const EdgeInsets.only(left: 4),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: cs.tertiaryContainer,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              'Hi-Res',
-                              style: tt.labelSmall?.copyWith(
-                                color: cs.onTertiaryContainer,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${track.performer?.name ?? track.album?.artist?.name ?? 'Unknown'} • ${widget.formatDuration(track.duration)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: tt.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
                           ),
-                        const SizedBox(width: 4),
-                        _DownloadButton(
-                          progress: progress,
-                          isDownloading: isDownloading,
-                          isCompleted: isCompleted,
-                          isFailed: isFailed,
-                          onDownload: () => _downloadTrack(track),
-                          cs: cs,
-                          tt: tt,
                         ),
                       ],
                     ),
                   ),
-                ),
-                if (isDownloading)
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      bottom: Radius.circular(16),
+                  if (track.hires == true)
+                    Container(
+                      margin: const EdgeInsets.only(left: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.tertiaryContainer,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Hi-Res',
+                        style: tt.labelSmall?.copyWith(
+                          color: cs.onTertiaryContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                    child: LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 3,
-                      color: cs.primary,
-                      backgroundColor: cs.surfaceContainerHighest,
-                    ),
+                  const SizedBox(width: 4),
+                  _DownloadButton(
+                    progress: progress,
+                    isDownloading: isDownloading,
+                    isCompleted: isCompleted,
+                    isFailed: isFailed,
+                    onDownload: widget.onDownload,
+                    cs: cs,
+                    tt: tt,
                   ),
-              ],
+                ],
+              ),
             ),
-          );
-        }, childCount: tracks.length),
+          ),
+          if (isDownloading)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(16),
+              ),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 3,
+                color: cs.primary,
+                backgroundColor: cs.surfaceContainerHighest,
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -1370,7 +1422,7 @@ class _AlbumCard extends StatelessWidget {
                     fit: BoxFit.cover,
                     memCacheWidth: 200, // Optimized cache size
                     memCacheHeight: 200,
-                    placeholder: (_, _a) => Container(
+                    placeholder: (context, url) => Container(
                       color: cs.surfaceContainerHighest,
                       child: Center(
                         child: Icon(
@@ -1380,7 +1432,7 @@ class _AlbumCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    errorWidget: (_, _a, _b) => Container(
+                    errorWidget: (context, url, error) => Container(
                       color: cs.surfaceContainerHighest,
                       child: Center(
                         child: Icon(

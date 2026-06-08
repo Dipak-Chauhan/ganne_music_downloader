@@ -15,7 +15,11 @@ class LibraryScreen extends ConsumerStatefulWidget {
   ConsumerState<LibraryScreen> createState() => _LibraryScreenState();
 }
 
-class _LibraryScreenState extends ConsumerState<LibraryScreen> {
+class _LibraryScreenState extends ConsumerState<LibraryScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final _searchController = TextEditingController();
   String _searchQuery = '';
   String _sortBy = 'recent'; // 'recent', 'title', 'artist'
@@ -671,6 +675,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final db = ref.watch(databaseProvider);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
@@ -1015,35 +1020,46 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   horizontal: 16,
                   vertical: 4,
                 ),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      FilterChip(
-                        selected: _sortBy == 'recent',
-                        label: const Text('Recently Added'),
-                        onSelected: (selected) {
-                          if (selected) setState(() => _sortBy = 'recent');
-                        },
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    const totalChipsWidth = 320.0;
+                    final fits = constraints.maxWidth >= totalChipsWidth;
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: fits
+                          ? const NeverScrollableScrollPhysics()
+                          : const BouncingScrollPhysics(
+                              parent: AlwaysScrollableScrollPhysics(),
+                            ),
+                      child: Row(
+                        children: [
+                          FilterChip(
+                            selected: _sortBy == 'recent',
+                            label: const Text('Recently Added'),
+                            onSelected: (selected) {
+                              if (selected) setState(() => _sortBy = 'recent');
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          FilterChip(
+                            selected: _sortBy == 'title',
+                            label: const Text('Song A-Z'),
+                            onSelected: (selected) {
+                              if (selected) setState(() => _sortBy = 'title');
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          FilterChip(
+                            selected: _sortBy == 'artist',
+                            label: const Text('Artist A-Z'),
+                            onSelected: (selected) {
+                              if (selected) setState(() => _sortBy = 'artist');
+                            },
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      FilterChip(
-                        selected: _sortBy == 'title',
-                        label: const Text('Song A-Z'),
-                        onSelected: (selected) {
-                          if (selected) setState(() => _sortBy = 'title');
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      FilterChip(
-                        selected: _sortBy == 'artist',
-                        label: const Text('Artist A-Z'),
-                        onSelected: (selected) {
-                          if (selected) setState(() => _sortBy = 'artist');
-                        },
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
 

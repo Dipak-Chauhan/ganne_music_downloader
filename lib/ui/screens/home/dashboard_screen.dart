@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../data/local/database.dart';
 import '../../../data/providers/service_providers.dart';
-import '../../../data/providers/settings_provider.dart';
 import '../../../services/player/player_service.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../widgets/glassmorphic_container.dart';
@@ -19,7 +18,11 @@ class DashboardScreen extends ConsumerStatefulWidget {
   ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+class _DashboardScreenState extends ConsumerState<DashboardScreen>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   double _ganneFolderSizeMB = 0.0;
   bool _calculatingSize = false;
   int? _lastCompletedCount;
@@ -85,6 +88,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
@@ -235,7 +239,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     return GlassmorphicContainer(
       borderRadius: 24,
-      blur: 20,
+      blur: 0,
       color: isDark
           ? cs.primaryContainer.withAlpha(45)
           : cs.primaryContainer.withAlpha(80),
@@ -418,126 +422,137 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       );
     }
 
-    return SizedBox(
-      height: 180,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        clipBehavior: Clip.none,
-        itemCount: recent.length,
-        itemBuilder: (context, index) {
-          final task = recent[index];
-          return Container(
-            width: 140,
-            margin: EdgeInsets.only(right: 12, left: index == 0 ? 0 : 0),
-            child: GlassmorphicContainer(
-              borderRadius: 16,
-              blur: 0,
-              padding: EdgeInsets.zero,
-              margin: EdgeInsets.zero,
-              color: Colors.black.withAlpha(30),
-              child: InkWell(
-                onTap: () {
-                  // Navigate to Library/details sheet or play in-app
-                  ref
-                      .read(audioPlayerProvider.notifier)
-                      .playTrack(task, allCompleted);
-                  AppToast.success(context, 'Playing "${task.trackTitle}"');
-                },
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // Cover Art Image
-                    task.coverUrl.isNotEmpty
-                        ? CachedNetworkImage(
-                            imageUrl: task.coverUrl,
-                            fit: BoxFit.cover,
-                            memCacheWidth: 280, // Optimized cache size
-                            memCacheHeight: 280,
-                            placeholder: (_, _a) =>
-                                Container(color: cs.surfaceContainerHighest),
-                            errorWidget: (_, _a, _b) => Container(
-                              color: cs.surfaceContainerHighest,
-                              child: Icon(
-                                Icons.music_note,
-                                color: cs.onSurfaceVariant,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalWidth = recent.length * 152.0 - 12.0;
+        final fits = constraints.maxWidth >= totalWidth;
+        return SizedBox(
+          height: 180,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            physics: fits
+                ? const NeverScrollableScrollPhysics()
+                : const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
+                  ),
+            clipBehavior: Clip.none,
+            itemCount: recent.length,
+            itemBuilder: (context, index) {
+              final task = recent[index];
+              return Container(
+                width: 140,
+                margin: EdgeInsets.only(right: 12, left: index == 0 ? 0 : 0),
+                child: GlassmorphicContainer(
+                  borderRadius: 16,
+                  blur: 0,
+                  padding: EdgeInsets.zero,
+                  margin: EdgeInsets.zero,
+                  color: Colors.black.withAlpha(30),
+                  child: InkWell(
+                    onTap: () {
+                      // Navigate to Library/details sheet or play in-app
+                      ref
+                          .read(audioPlayerProvider.notifier)
+                          .playTrack(task, allCompleted);
+                      AppToast.success(context, 'Playing "${task.trackTitle}"');
+                    },
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // Cover Art Image
+                        task.coverUrl.isNotEmpty
+                            ? CachedNetworkImage(
+                                imageUrl: task.coverUrl,
+                                fit: BoxFit.cover,
+                                memCacheWidth: 280, // Optimized cache size
+                                memCacheHeight: 280,
+                                placeholder: (_, _a) =>
+                                    Container(color: cs.surfaceContainerHighest),
+                                errorWidget: (_, _a, _b) => Container(
+                                  color: cs.surfaceContainerHighest,
+                                  child: Icon(
+                                    Icons.music_note,
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                ),
+                              )
+                            : Container(
+                                color: cs.surfaceContainerHighest,
+                                child: Icon(
+                                  Icons.music_note,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                        // Bottom gradient overlay
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.black.withAlpha(220),
+                                ],
                               ),
                             ),
-                          )
-                        : Container(
-                            color: cs.surfaceContainerHighest,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  task.trackTitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: tt.labelMedium?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 1),
+                                Text(
+                                  task.artistName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: tt.bodySmall?.copyWith(
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // Quick Play Floating Circle Tonal Button
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            height: 36,
+                            width: 36,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: cs.primaryContainer.withAlpha(220),
+                            ),
                             child: Icon(
-                              Icons.music_note,
-                              color: cs.onSurfaceVariant,
+                              Icons.play_arrow_rounded,
+                              color: cs.onPrimaryContainer,
+                              size: 22,
                             ),
                           ),
-                    // Bottom gradient overlay
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withAlpha(220),
-                            ],
-                          ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              task.trackTitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: tt.labelMedium?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 1),
-                            Text(
-                              task.artistName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: tt.bodySmall?.copyWith(
-                                color: Colors.white70,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      ],
                     ),
-                    // Quick Play Floating Circle Tonal Button
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Container(
-                        height: 36,
-                        width: 36,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: cs.primaryContainer.withAlpha(220),
-                        ),
-                        child: Icon(
-                          Icons.play_arrow_rounded,
-                          color: cs.onPrimaryContainer,
-                          size: 22,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -598,7 +613,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     return GlassmorphicContainer(
       borderRadius: 20,
-      blur: 15,
+      blur: 0,
       color: color.withAlpha(isDark ? 40 : 80),
       borderColor: cs.outlineVariant.withAlpha(60),
       padding: EdgeInsets.zero,
