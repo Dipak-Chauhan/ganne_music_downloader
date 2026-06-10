@@ -9,6 +9,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/utils/app_toast.dart';
 import '../../../services/player/player_service.dart';
 import '../../../services/permissions/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -41,33 +42,57 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
           _SectionHeader(title: 'About', cs: cs, tt: tt),
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 16),
-            child: ListTile(
-              leading: Icon(Icons.album, color: cs.primary),
-              title: Text(
-                AppConstants.appName,
-                style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-              ),
-              subtitle: Text(
-                AppConstants.appTagline,
-                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-              ),
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: cs.primaryContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  'v1.0.0',
-                  style: tt.labelSmall?.copyWith(
-                    color: cs.onPrimaryContainer,
-                    fontWeight: FontWeight.w600,
+            child: Column(
+              children: [
+                ListTile(
+                  leading: Icon(Icons.album, color: cs.primary),
+                  title: Text(
+                    AppConstants.appName,
+                    style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    AppConstants.appTagline,
+                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.primaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'v1.0.0',
+                      style: tt.labelSmall?.copyWith(
+                        color: cs.onPrimaryContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                _divider(cs),
+                ListTile(
+                  leading: Icon(Icons.coffee, color: cs.onSurfaceVariant),
+                  title: Text(
+                    'Support me',
+                    style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  onTap: () {
+                    final url = Uri.parse('https://ko-fi.com/V0R120YPDT');
+                    launchUrl(url, mode: LaunchMode.externalApplication).catchError((_) => false);
+                  },
+                  trailing: Image.network(
+                    'https://storage.ko-fi.com/cdn/kofi1.png?v=6',
+                    height: 36,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Icon(Icons.open_in_new, color: cs.onSurfaceVariant);
+                    },
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
             ),
           ),
 
