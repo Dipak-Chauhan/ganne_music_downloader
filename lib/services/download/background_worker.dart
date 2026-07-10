@@ -23,7 +23,6 @@ void callbackDispatcher() {
       await notificationsPlugin.initialize(settings: initializationSettings);
 
       final downloadManager = DownloadManager(
-        apiClient.dio,
         db,
         notificationsPlugin,
         secureStorage,

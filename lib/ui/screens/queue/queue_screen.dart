@@ -428,7 +428,7 @@ class _QueueItemCardState extends ConsumerState<_QueueItemCard> {
                             width: 52,
                             height: 52,
                             fit: BoxFit.cover,
-                            placeholder: (_, _a) => _placeholder(cs),
+                            placeholder: (_, a) => _placeholder(cs),
                           )
                         : _placeholder(cs),
                   ),

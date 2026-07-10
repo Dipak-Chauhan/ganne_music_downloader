@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' as drift;
@@ -524,9 +523,6 @@ class DownloadService {
     }
   }
 
-  // Not used by dart_tags but kept for future ref
-  void _addMeta(StringBuffer sb, String key, String value) {}
-
   Future<void> downloadAlbumAsZip({
     required QobuzAlbum album,
     required FetchedAlbumResponse fetchedData,
@@ -579,8 +575,9 @@ class DownloadService {
       final albumTempDir = Directory(
         p.join(tempDir.path, 'ganne_zip_$startId'),
       );
-      if (await albumTempDir.exists())
+      if (await albumTempDir.exists()) {
         await albumTempDir.delete(recursive: true);
+      }
       await albumTempDir.create(recursive: true);
       debugPrint('[ZIP] Temp directory: ${albumTempDir.path}');
 

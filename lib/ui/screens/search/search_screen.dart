@@ -234,8 +234,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   }
 
   void _loadMore() async {
-    if (_isLoadingMore || _results == null || _currentCount >= _currentTotal)
+    if (_isLoadingMore || _results == null || _currentCount >= _currentTotal) {
       return;
+    }
     setState(() => _isLoadingMore = true);
     try {
       final settings = ref.read(appSettingsProvider);
@@ -555,8 +556,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                       focusNode: _searchFocus,
                       onSubmitted: _onSearch,
                       onTap: () {
-                        if (_suggestions != null)
+                        if (_suggestions != null) {
                           setState(() => _showSuggestions = true);
+                        }
                       },
                       hintText: 'Search albums, tracks...',
                       leading: Padding(
@@ -594,8 +596,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                             ),
                             label: const Text('Albums'),
                             onSelected: (_) {
-                              if (_showSuggestions)
+                              if (_showSuggestions) {
                                 setState(() => _showSuggestions = false);
+                              }
                               setState(() => _searchField = 'albums');
                             },
                           ),
@@ -610,8 +613,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                             ),
                             label: const Text('Tracks'),
                             onSelected: (_) {
-                              if (_showSuggestions)
+                              if (_showSuggestions) {
                                 setState(() => _showSuggestions = false);
+                              }
                               setState(() => _searchField = 'tracks');
                             },
                           ),
@@ -619,8 +623,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                           InkWell(
                             borderRadius: BorderRadius.circular(16),
                             onTap: () {
-                              if (_showSuggestions)
+                              if (_showSuggestions) {
                                 setState(() => _showSuggestions = false);
+                              }
                               setState(() => _showSortMenu = !_showSortMenu);
                             },
                             child: Chip(
@@ -853,9 +858,27 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                                   setState(() => _showSuggestions = false);
                                   _searchFocus.unfocus();
                                   Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) =>
+                                    PageRouteBuilder(
+                                      pageBuilder: (context, animation, secondaryAnimation) =>
                                           AlbumDetailScreen(album: album),
+                                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                        final slideTween = Tween<Offset>(
+                                          begin: const Offset(0.0, 0.08),
+                                          end: Offset.zero,
+                                        ).chain(CurveTween(curve: Curves.easeOutCubic));
+                                        final fadeTween = Tween<double>(
+                                          begin: 0.0,
+                                          end: 1.0,
+                                        ).chain(CurveTween(curve: Curves.easeOut));
+                                        return SlideTransition(
+                                          position: animation.drive(slideTween),
+                                          child: FadeTransition(
+                                            opacity: animation.drive(fadeTween),
+                                            child: child,
+                                          ),
+                                        );
+                                      },
+                                      transitionDuration: const Duration(milliseconds: 350),
                                     ),
                                   );
                                 },
@@ -1082,8 +1105,27 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             album: album,
             formatYear: _formatYear,
             onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => AlbumDetailScreen(album: album),
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) =>
+                    AlbumDetailScreen(album: album),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  final slideTween = Tween<Offset>(
+                    begin: const Offset(0.0, 0.08),
+                    end: Offset.zero,
+                  ).chain(CurveTween(curve: Curves.easeOutCubic));
+                  final fadeTween = Tween<double>(
+                    begin: 0.0,
+                    end: 1.0,
+                  ).chain(CurveTween(curve: Curves.easeOut));
+                  return SlideTransition(
+                    position: animation.drive(slideTween),
+                    child: FadeTransition(
+                      opacity: animation.drive(fadeTween),
+                      child: child,
+                    ),
+                  );
+                },
+                transitionDuration: const Duration(milliseconds: 350),
               ),
             ),
             onDownload: () => _showAlbumDownloadOptions(album),
@@ -1210,9 +1252,27 @@ class _TrackCardState extends ConsumerState<_TrackCard> {
             onTap: () {
               if (track.album != null) {
                 Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) =>
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) =>
                         AlbumDetailScreen(album: track.album!),
+                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                      final slideTween = Tween<Offset>(
+                        begin: const Offset(0.0, 0.08),
+                        end: Offset.zero,
+                      ).chain(CurveTween(curve: Curves.easeOutCubic));
+                      final fadeTween = Tween<double>(
+                        begin: 0.0,
+                        end: 1.0,
+                      ).chain(CurveTween(curve: Curves.easeOut));
+                      return SlideTransition(
+                        position: animation.drive(slideTween),
+                        child: FadeTransition(
+                          opacity: animation.drive(fadeTween),
+                          child: child,
+                        ),
+                      );
+                    },
+                    transitionDuration: const Duration(milliseconds: 350),
                   ),
                 );
               }
@@ -1223,18 +1283,21 @@ class _TrackCardState extends ConsumerState<_TrackCard> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: coverUrl.isNotEmpty
-                        ? CachedNetworkImage(
-                            imageUrl: coverUrl,
-                            width: 52,
-                            height: 52,
-                            fit: BoxFit.cover,
-                            memCacheWidth: 104,
-                            memCacheHeight: 104,
-                            placeholder: (context, url) =>
-                                _CoverPlaceholder(cs: cs),
-                          )
-                        : _CoverPlaceholder(cs: cs),
+                    child: Hero(
+                      tag: track.album != null ? 'album_art_${track.album!.id}' : 'track_art_${track.id}',
+                      child: coverUrl.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: coverUrl,
+                              width: 52,
+                              height: 52,
+                              fit: BoxFit.cover,
+                              memCacheWidth: 104,
+                              memCacheHeight: 104,
+                              placeholder: (context, url) =>
+                                  _CoverPlaceholder(cs: cs),
+                            )
+                          : _CoverPlaceholder(cs: cs),
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -1416,13 +1479,36 @@ class _AlbumCard extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             // Cover
-            coverUrl.isNotEmpty
-                ? CachedNetworkImage(
-                    imageUrl: coverUrl,
-                    fit: BoxFit.cover,
-                    memCacheWidth: 200, // Optimized cache size
-                    memCacheHeight: 200,
-                    placeholder: (context, url) => Container(
+            Hero(
+              tag: 'album_art_${album.id}',
+              child: coverUrl.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: coverUrl,
+                      fit: BoxFit.cover,
+                      memCacheWidth: 200, // Optimized cache size
+                      memCacheHeight: 200,
+                      placeholder: (context, url) => Container(
+                        color: cs.surfaceContainerHighest,
+                        child: Center(
+                          child: Icon(
+                            Icons.album,
+                            size: 40,
+                            color: cs.outlineVariant,
+                          ),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        color: cs.surfaceContainerHighest,
+                        child: Center(
+                          child: Icon(
+                            Icons.album,
+                            size: 40,
+                            color: cs.outlineVariant,
+                          ),
+                        ),
+                      ),
+                    )
+                  : Container(
                       color: cs.surfaceContainerHighest,
                       child: Center(
                         child: Icon(
@@ -1432,27 +1518,7 @@ class _AlbumCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    errorWidget: (context, url, error) => Container(
-                      color: cs.surfaceContainerHighest,
-                      child: Center(
-                        child: Icon(
-                          Icons.album,
-                          size: 40,
-                          color: cs.outlineVariant,
-                        ),
-                      ),
-                    ),
-                  )
-                : Container(
-                    color: cs.surfaceContainerHighest,
-                    child: Center(
-                      child: Icon(
-                        Icons.album,
-                        size: 40,
-                        color: cs.outlineVariant,
-                      ),
-                    ),
-                  ),
+            ),
             // Bottom gradient + text
             Positioned(
               left: 0,

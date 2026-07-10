@@ -58,17 +58,19 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
       final data = await ref
           .read(qobuzServiceProvider)
           .getAlbumInfo(widget.album.id!);
-      if (mounted)
+      if (mounted) {
         setState(() {
           _fetchedData = data;
           _isLoading = false;
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _error = e.toString();
           _isLoading = false;
         });
+      }
     }
   }
 
@@ -259,18 +261,30 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                     background: Stack(
                       fit: StackFit.expand,
                       children: [
-                        CachedNetworkImage(
-                          imageUrl: widget.album.getFullResImageUrl(),
-                          fit: BoxFit.cover,
-                          placeholder: (_, _a) =>
-                              Container(color: cs.surfaceContainerHighest),
-                          errorWidget: (_, _a, _b) => Container(
-                            color: cs.surfaceContainerHighest,
-                            child: Center(
-                              child: Icon(
-                                Icons.album,
-                                size: 64,
-                                color: cs.outlineVariant,
+                        Hero(
+                          tag: 'album_art_${widget.album.id}',
+                          child: CachedNetworkImage(
+                            imageUrl: widget.album.getFullResImageUrl(),
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => CachedNetworkImage(
+                              imageUrl: widget.album.getCoverLargeUrl(),
+                              fit: BoxFit.cover,
+                              placeholder: (context2, url2) => Container(
+                                color: cs.surfaceContainerHighest,
+                              ),
+                            ),
+                            errorWidget: (context, url, error) => CachedNetworkImage(
+                              imageUrl: widget.album.getCoverLargeUrl(),
+                              fit: BoxFit.cover,
+                              errorWidget: (context2, url2, error2) => Container(
+                                color: cs.surfaceContainerHighest,
+                                child: Center(
+                                  child: Icon(
+                                    Icons.album,
+                                    size: 64,
+                                    color: cs.outlineVariant,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -390,8 +404,9 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                             initialSelection: _selectedQuality,
                             label: const Text('Quality'),
                             onSelected: (val) {
-                              if (val != null)
+                              if (val != null) {
                                 setState(() => _selectedQuality = val);
+                              }
                             },
                             dropdownMenuEntries: _qualities
                                 .map(

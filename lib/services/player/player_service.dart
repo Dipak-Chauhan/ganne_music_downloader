@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../../data/local/database.dart';
-import '../../data/providers/service_providers.dart';
 
 class PlaybackState {
   final DownloadTask? currentTrack;

@@ -1128,7 +1128,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                                               width: 52,
                                               height: 52,
                                               fit: BoxFit.cover,
-                                              placeholder: (_, _a) => Container(
+                                              placeholder: (_, a) => Container(
                                                 width: 52,
                                                 height: 52,
                                                 color:

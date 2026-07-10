@@ -13,14 +13,13 @@ import '../api/qobuz_service.dart' show DownloadUrlInfo;
 import 'download_service.dart' show DownloadService;
 
 class DownloadManager {
-  final Dio _apiDio; // For API calls (has Qobuz headers)
   final AppDatabase _db;
   final FlutterLocalNotificationsPlugin _notifications;
   final SecureStorage _secureStorage;
   final Dio _downloadDio =
       Dio(); // Clean Dio for CDN download (no Qobuz base URL)
 
-  DownloadManager(this._apiDio, this._db, this._notifications, this._secureStorage);
+  DownloadManager(this._db, this._notifications, this._secureStorage);
 
   Future<void> executeDownload(DownloadTask task, DownloadUrlInfo downloadInfo) async {
     final savePath = task.savePath;

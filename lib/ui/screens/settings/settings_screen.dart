@@ -71,6 +71,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       ),
                     ),
                   ),
+                  onTap: () {
+                    final url = Uri.parse('https://github.com/Dipak-Chauhan/Ganne');
+                    launchUrl(url, mode: LaunchMode.externalApplication).catchError((_) => false);
+                  },
+                ),
+                _divider(cs),
+                ListTile(
+                  leading: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.asset(
+                      'assets/images/maintainer.png',
+                      width: 32,
+                      height: 32,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(Icons.person_outline, color: cs.onSurfaceVariant);
+                      },
+                    ),
+                  ),
+                  title: Text(
+                    'Dipak Chauhan',
+                    style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    'Lead Maintainer',
+                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.secondaryContainer,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'Maintainer',
+                      style: tt.labelSmall?.copyWith(
+                        color: cs.onSecondaryContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  onTap: () {
+                    final url = Uri.parse('https://github.com/Dipak-Chauhan');
+                    launchUrl(url, mode: LaunchMode.externalApplication).catchError((_) => false);
+                  },
                 ),
                 _divider(cs),
                 ListTile(
@@ -83,8 +131,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     final url = Uri.parse('https://ko-fi.com/V0R120YPDT');
                     launchUrl(url, mode: LaunchMode.externalApplication).catchError((_) => false);
                   },
-                  trailing: Image.network(
-                    'https://storage.ko-fi.com/cdn/kofi1.png?v=6',
+                  trailing: Image.asset(
+                    'assets/images/kofi.png',
                     height: 36,
                     errorBuilder: (context, error, stackTrace) {
                       return Icon(Icons.open_in_new, color: cs.onSurfaceVariant);
@@ -148,6 +196,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   onChanged: settings.themeMode == 'light'
                       ? null // Disables switch in light mode
                       : (val) => settingsNotifier.toggleAmoled(val),
+                ),
+                _divider(cs),
+                SwitchListTile(
+                  secondary: Icon(
+                    Icons.blur_on_outlined,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  title: Text(
+                    'Glassmorphic Blur',
+                    style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    'Enable frosted glass visual effects (disable for 60/120fps)',
+                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                  value: settings.enableBlur,
+                  onChanged: (val) => settingsNotifier.toggleBlur(val),
                 ),
               ],
             ),

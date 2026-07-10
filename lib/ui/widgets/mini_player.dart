@@ -67,7 +67,7 @@ class MiniPlayer extends ConsumerWidget {
                                   fit: BoxFit.cover,
                                   memCacheWidth: 84, // Optimized cache size
                                   memCacheHeight: 84,
-                                  placeholder: (_, _a) => Container(
+                                  placeholder: (_, a) => Container(
                                     width: 42,
                                     height: 42,
                                     color: cs.surfaceContainerHighest,

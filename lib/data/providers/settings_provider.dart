@@ -12,6 +12,8 @@ class AppSettings {
   themeAccent; // 'purple', 'ocean', 'emerald', 'crimson', 'sunset', 'sakura', 'teal', 'amber', 'indigo', 'dynamic'
   final String themeMode; // 'light', 'dark', 'system'
   final bool useAmoled;
+  final bool enableBlur;
+
 
   const AppSettings({
     this.outputCodec = 'flac',
@@ -22,7 +24,9 @@ class AppSettings {
     this.themeAccent = 'purple',
     this.themeMode = 'system',
     this.useAmoled = false,
+    this.enableBlur = false,
   });
+
 
   AppSettings copyWith({
     String? outputCodec,
@@ -33,6 +37,7 @@ class AppSettings {
     String? themeAccent,
     String? themeMode,
     bool? useAmoled,
+    bool? enableBlur,
   }) {
     return AppSettings(
       outputCodec: outputCodec ?? this.outputCodec,
@@ -43,6 +48,7 @@ class AppSettings {
       themeAccent: themeAccent ?? this.themeAccent,
       themeMode: themeMode ?? this.themeMode,
       useAmoled: useAmoled ?? this.useAmoled,
+      enableBlur: enableBlur ?? this.enableBlur,
     );
   }
 
@@ -77,6 +83,8 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   static const _keyAccent = 'setting_accent';
   static const _keyThemeMode = 'setting_theme_mode';
   static const _keyAmoled = 'setting_amoled';
+  static const _keyBlur = 'setting_blur';
+
 
   @override
   AppSettings build() {
@@ -97,6 +105,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
         themeAccent: raw[_keyAccent] ?? 'purple',
         themeMode: raw[_keyThemeMode] ?? 'system',
         useAmoled: raw[_keyAmoled] == 'true',
+        enableBlur: raw[_keyBlur] == 'true',
       );
     } catch (e) {
       debugPrint('Settings load error: $e');
@@ -113,6 +122,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     await storage.writeKey(_keyAccent, state.themeAccent);
     await storage.writeKey(_keyThemeMode, state.themeMode);
     await storage.writeKey(_keyAmoled, state.useAmoled.toString());
+    await storage.writeKey(_keyBlur, state.enableBlur.toString());
   }
 
   void setOutputCodec(String codec) {
@@ -152,6 +162,11 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
 
   void toggleAmoled(bool v) {
     state = state.copyWith(useAmoled: v);
+    _save();
+  }
+
+  void toggleBlur(bool v) {
+    state = state.copyWith(enableBlur: v);
     _save();
   }
 }

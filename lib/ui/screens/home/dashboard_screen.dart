@@ -73,10 +73,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
-    if (hour < 5) return 'Good night';
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+    if (hour >= 21 || hour < 5) return 'Late night vibes';
+    if (hour < 12) return 'Morning beats';
+    if (hour < 17) return 'Midday soundtrack';
+    return 'Sunset vibes';
   }
 
   String _formatSize(double mb) {
@@ -466,9 +466,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                 fit: BoxFit.cover,
                                 memCacheWidth: 280, // Optimized cache size
                                 memCacheHeight: 280,
-                                placeholder: (_, _a) =>
+                                placeholder: (_, a) =>
                                     Container(color: cs.surfaceContainerHighest),
-                                errorWidget: (_, _a, _b) => Container(
+                                errorWidget: (_, a, b) => Container(
                                   color: cs.surfaceContainerHighest,
                                   child: Icon(
                                     Icons.music_note,

@@ -94,7 +94,7 @@ class QobuzAlbum {
   String getFullResImageUrl() {
     final lg = image?.large ?? '';
     if (lg.length > 7) {
-      return lg.substring(0, lg.length - 7) + "org.jpg";
+      return "${lg.substring(0, lg.length - 7)}org.jpg";
     }
     return lg;
   }
