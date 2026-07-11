@@ -7,6 +7,7 @@ import '../../data/local/database.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:path/path.dart' as p;
 import 'package:audiotags/audiotags.dart';
+import '../../core/utils/flac_tagger.dart';
 import 'package:http/http.dart' as http;
 import '../../data/secure_storage/secure_storage.dart';
 import '../api/qobuz_service.dart' show DownloadUrlInfo;
@@ -221,25 +222,46 @@ class DownloadManager {
     DownloadTask task,
   ) async {
     try {
-      final tag = Tag(
-        title: task.trackTitle,
-        trackArtist: task.artistName,
-        album: task.albumTitle,
-        albumArtist: task.albumArtist,
-        trackNumber: task.trackNumber,
-        year: task.year,
-        genre: task.genre,
-        pictures: coverFile != null
-            ? [
-                Picture(
-                  bytes: await coverFile.readAsBytes(),
-                  mimeType: MimeType.jpeg,
-                  pictureType: PictureType.coverFront,
-                ),
-              ]
-            : [],
-      );
-      await AudioTags.write(audioFile.path, tag);
+      if (audioFile.path.endsWith('.flac')) {
+        final coverBytes = coverFile != null ? await coverFile.readAsBytes() : null;
+        final flacTags = {
+          'TITLE': task.trackTitle,
+          'ARTIST': task.artistName,
+          'ALBUM': task.albumTitle,
+          if (task.albumArtist != null && task.albumArtist!.isNotEmpty) ...{
+            'ALBUMARTIST': task.albumArtist!,
+            'ALBUM_ARTIST': task.albumArtist!,
+          },
+          if (task.trackNumber != null) 'TRACKNUMBER': task.trackNumber!.toString(),
+          if (task.year != null) 'DATE': task.year!.toString(),
+          if (task.genre != null && task.genre!.isNotEmpty) 'GENRE': task.genre!,
+        };
+        await FlacTagger.writeTags(
+          filePath: audioFile.path,
+          tags: flacTags,
+          coverBytes: coverBytes,
+        );
+      } else {
+        final tag = Tag(
+          title: task.trackTitle,
+          trackArtist: task.artistName,
+          album: task.albumTitle,
+          albumArtist: task.albumArtist,
+          trackNumber: task.trackNumber,
+          year: task.year,
+          genre: task.genre,
+          pictures: coverFile != null
+              ? [
+                  Picture(
+                    bytes: await coverFile.readAsBytes(),
+                    mimeType: MimeType.jpeg,
+                    pictureType: PictureType.coverFront,
+                  ),
+                ]
+              : [],
+        );
+        await AudioTags.write(audioFile.path, tag);
+      }
     } catch (e) {
       debugPrint('Background metadata apply error: $e');
     }
