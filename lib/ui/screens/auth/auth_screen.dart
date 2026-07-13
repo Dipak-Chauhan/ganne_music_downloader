@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../widgets/glassmorphic_container.dart';
+import '../../../core/constants/api_constants.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
@@ -12,8 +13,8 @@ class AuthScreen extends ConsumerStatefulWidget {
 
 class _AuthScreenState extends ConsumerState<AuthScreen>
     with SingleTickerProviderStateMixin {
-  final _appIdController = TextEditingController();
-  final _appSecretController = TextEditingController();
+  final _appIdController = TextEditingController(text: ApiConstants.defaultAppId);
+  final _appSecretController = TextEditingController(text: ApiConstants.defaultAppSecret);
   final _tokenController = TextEditingController();
 
   bool _isLoading = false;
