@@ -242,9 +242,6 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
               ),
             )
           : CustomScrollView(
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
               slivers: [
                 SliverAppBar.large(
                   pinned: true,
@@ -266,27 +263,48 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                           child: CachedNetworkImage(
                             imageUrl: widget.album.getFullResImageUrl(),
                             fit: BoxFit.cover,
-                            placeholder: (context, url) => CachedNetworkImage(
-                              imageUrl: widget.album.getCoverLargeUrl(),
-                              fit: BoxFit.cover,
-                              placeholder: (context2, url2) => Container(
-                                color: cs.surfaceContainerHighest,
-                              ),
-                            ),
-                            errorWidget: (context, url, error) => CachedNetworkImage(
-                              imageUrl: widget.album.getCoverLargeUrl(),
-                              fit: BoxFit.cover,
-                              errorWidget: (context2, url2, error2) => Container(
-                                color: cs.surfaceContainerHighest,
-                                child: Center(
-                                  child: Icon(
-                                    Icons.album,
-                                    size: 64,
-                                    color: cs.outlineVariant,
+                            memCacheWidth: 600,
+                            memCacheHeight: 600,
+                            placeholder: (context, url) => widget.album.getCoverLargeUrl().isNotEmpty
+                                ? CachedNetworkImage(
+                                    imageUrl: widget.album.getCoverLargeUrl(),
+                                    fit: BoxFit.cover,
+                                    memCacheWidth: 200,
+                                    memCacheHeight: 200,
+                                    placeholder: (context2, url2) => Container(
+                                      color: cs.surfaceContainerHighest,
+                                    ),
+                                  )
+                                : Container(
+                                    color: cs.surfaceContainerHighest,
                                   ),
-                                ),
-                              ),
-                            ),
+                            errorWidget: (context, url, error) => widget.album.getCoverLargeUrl().isNotEmpty
+                                ? CachedNetworkImage(
+                                    imageUrl: widget.album.getCoverLargeUrl(),
+                                    fit: BoxFit.cover,
+                                    memCacheWidth: 200,
+                                    memCacheHeight: 200,
+                                    errorWidget: (context2, url2, error2) => Container(
+                                      color: cs.surfaceContainerHighest,
+                                      child: Center(
+                                        child: Icon(
+                                          Icons.album,
+                                          size: 64,
+                                          color: cs.outlineVariant,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : Container(
+                                    color: cs.surfaceContainerHighest,
+                                    child: Center(
+                                      child: Icon(
+                                        Icons.album,
+                                        size: 64,
+                                        color: cs.outlineVariant,
+                                      ),
+                                    ),
+                                  ),
                           ),
                         ),
                         DecoratedBox(

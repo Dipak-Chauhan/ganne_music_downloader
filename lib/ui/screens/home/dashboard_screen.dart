@@ -125,9 +125,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             onRefresh: _updateFolderSize,
             color: cs.primary,
             child: CustomScrollView(
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
+              physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 SliverAppBar(
                   expandedHeight: 120,
@@ -432,9 +430,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             scrollDirection: Axis.horizontal,
             physics: fits
                 ? const NeverScrollableScrollPhysics()
-                : const BouncingScrollPhysics(
-                    parent: AlwaysScrollableScrollPhysics(),
-                  ),
+                : null,
             clipBehavior: Clip.none,
             itemCount: recent.length,
             itemBuilder: (context, index) {

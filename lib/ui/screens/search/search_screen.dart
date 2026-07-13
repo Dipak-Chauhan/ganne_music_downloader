@@ -524,9 +524,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             CustomScrollView(
               controller: _scrollController,
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
@@ -1283,21 +1280,18 @@ class _TrackCardState extends ConsumerState<_TrackCard> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: Hero(
-                      tag: track.album != null ? 'album_art_${track.album!.id}' : 'track_art_${track.id}',
-                      child: coverUrl.isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: coverUrl,
-                              width: 52,
-                              height: 52,
-                              fit: BoxFit.cover,
-                              memCacheWidth: 104,
-                              memCacheHeight: 104,
-                              placeholder: (context, url) =>
-                                  _CoverPlaceholder(cs: cs),
-                            )
-                          : _CoverPlaceholder(cs: cs),
-                    ),
+                    child: coverUrl.isNotEmpty
+                        ? CachedNetworkImage(
+                            imageUrl: coverUrl,
+                            width: 52,
+                            height: 52,
+                            fit: BoxFit.cover,
+                            memCacheWidth: 104,
+                            memCacheHeight: 104,
+                            placeholder: (context, url) =>
+                                _CoverPlaceholder(cs: cs),
+                          )
+                        : _CoverPlaceholder(cs: cs),
                   ),
                   const SizedBox(width: 14),
                   Expanded(

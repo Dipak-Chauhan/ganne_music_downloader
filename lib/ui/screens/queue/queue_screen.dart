@@ -171,9 +171,6 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
           }
 
           return ListView(
-            physics: const BouncingScrollPhysics(
-              parent: AlwaysScrollableScrollPhysics(),
-            ),
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 160),
             children: items,
           );
@@ -428,6 +425,8 @@ class _QueueItemCardState extends ConsumerState<_QueueItemCard> {
                             width: 52,
                             height: 52,
                             fit: BoxFit.cover,
+                            memCacheWidth: 104,
+                            memCacheHeight: 104,
                             placeholder: (_, a) => _placeholder(cs),
                           )
                         : _placeholder(cs),

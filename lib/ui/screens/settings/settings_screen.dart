@@ -34,9 +34,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
-        ),
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
           _SectionHeader(title: 'About', cs: cs, tt: tt),

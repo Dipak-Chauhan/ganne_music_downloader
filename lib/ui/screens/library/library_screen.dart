@@ -213,6 +213,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                               width: 80,
                               height: 80,
                               fit: BoxFit.cover,
+                              memCacheWidth: 160,
+                              memCacheHeight: 160,
                             )
                           : Container(
                               width: 80,
@@ -1028,9 +1030,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                       scrollDirection: Axis.horizontal,
                       physics: fits
                           ? const NeverScrollableScrollPhysics()
-                          : const BouncingScrollPhysics(
-                              parent: AlwaysScrollableScrollPhysics(),
-                            ),
+                          : null,
                       child: Row(
                         children: [
                           FilterChip(
@@ -1077,9 +1077,6 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                         ),
                       )
                     : ListView.builder(
-                        physics: const BouncingScrollPhysics(
-                          parent: AlwaysScrollableScrollPhysics(),
-                        ),
                         padding: const EdgeInsets.fromLTRB(12, 0, 12, 160),
                         itemCount: tasks.length,
                         itemBuilder: (context, index) {
@@ -1128,6 +1125,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                                               width: 52,
                                               height: 52,
                                               fit: BoxFit.cover,
+                                              memCacheWidth: 104,
+                                              memCacheHeight: 104,
                                               placeholder: (_, a) => Container(
                                                 width: 52,
                                                 height: 52,

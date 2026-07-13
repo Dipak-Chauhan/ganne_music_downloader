@@ -68,7 +68,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
           RepaintBoundary(
             child: PageView(
               controller: _pageController,
-              physics: const BouncingScrollPhysics(),
+              physics: const NeverScrollableScrollPhysics(),
               onPageChanged: (idx) {
                 setState(() => _currentIndex = idx);
               },
@@ -194,6 +194,8 @@ class _DownloadBar extends StatelessWidget {
                               width: 44,
                               height: 44,
                               fit: BoxFit.cover,
+                              memCacheWidth: 88,
+                              memCacheHeight: 88,
                               placeholder: (_, _) => Container(
                                 width: 44,
                                 height: 44,

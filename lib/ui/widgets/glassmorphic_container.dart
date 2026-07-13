@@ -38,7 +38,7 @@ class GlassmorphicContainer extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cs = Theme.of(context).colorScheme;
 
-    final double effectiveBlur = settings.enableBlur ? blur : 0.0;
+    final double effectiveBlur = settings.enableBlur ? blur.clamp(0.0, 12.0) : 0.0;
 
     // Translucent glass gradient with specular highlights to let the blur show through with depth
     final defaultGradient = isDark
