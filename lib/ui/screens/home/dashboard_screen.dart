@@ -183,8 +183,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                             ),
                             if (completedTasks.length > 5)
                               TextButton(
-                                onPressed: () =>
-                                    widget.onNavigate(2), // Navigate to Library
+                                onPressed: () => widget.onNavigate(3),
                                 child: const Text('View All'),
                               ),
                           ],
@@ -428,9 +427,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           height: 180,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            physics: fits
-                ? const NeverScrollableScrollPhysics()
-                : null,
+            physics: fits ? const NeverScrollableScrollPhysics() : null,
             clipBehavior: Clip.none,
             itemCount: recent.length,
             itemBuilder: (context, index) {
@@ -462,8 +459,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                 fit: BoxFit.cover,
                                 memCacheWidth: 280, // Optimized cache size
                                 memCacheHeight: 280,
-                                placeholder: (_, a) =>
-                                    Container(color: cs.surfaceContainerHighest),
+                                placeholder: (_, a) => Container(
+                                  color: cs.surfaceContainerHighest,
+                                ),
                                 errorWidget: (_, a, b) => Container(
                                   color: cs.surfaceContainerHighest,
                                   child: Icon(

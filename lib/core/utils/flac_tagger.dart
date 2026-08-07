@@ -11,94 +11,106 @@ class FlacTagger {
     required String filePath,
     required Map<String, String> tags,
     Uint8List? coverBytes,
+    String? coverMimeType,
   }) async {
     final file = File(filePath);
     if (!await file.exists()) return;
 
-    final bytes = await file.readAsBytes();
-    if (bytes.length < 4 ||
-        bytes[0] != 0x66 ||
-        bytes[1] != 0x4C ||
-        bytes[2] != 0x61 ||
-        bytes[3] != 0x43) {
-      throw Exception('Not a valid FLAC file');
+    final input = await file.open(mode: FileMode.read);
+    late final List<_MetadataBlock> keptBlocks;
+    late final int audioOffset;
+    try {
+      final signature = await _readExactly(input, 4);
+      if (signature[0] != 0x66 ||
+          signature[1] != 0x4C ||
+          signature[2] != 0x61 ||
+          signature[3] != 0x43) {
+        throw Exception('Not a valid FLAC file');
+      }
+
+      keptBlocks = <_MetadataBlock>[];
+      var isLastBlock = false;
+      while (!isLastBlock) {
+        final header = await _readExactly(input, 4);
+        final headerByte = header[0];
+        isLastBlock = (headerByte & 0x80) != 0;
+        final blockType = headerByte & 0x7F;
+        final length = (header[1] << 16) | (header[2] << 8) | header[3];
+        final payload = await _readExactly(input, length);
+
+        // Discard existing VORBIS_COMMENT (4) and PICTURE (6) blocks.
+        if (blockType != 4 && blockType != 6) {
+          keptBlocks.add(_MetadataBlock(type: blockType, payload: payload));
+        }
+      }
+      audioOffset = await input.position();
+    } finally {
+      await input.close();
     }
 
-    final keptBlocks = <_MetadataBlock>[];
-    int offset = 4;
-
-    bool isLastBlock = false;
-    while (!isLastBlock && offset < bytes.length) {
-      if (offset + 4 > bytes.length) {
-        throw Exception('Unexpected end of file while reading metadata headers');
-      }
-
-      final headerByte = bytes[offset];
-      isLastBlock = (headerByte & 0x80) != 0;
-      final blockType = headerByte & 0x7F;
-
-      final length = (bytes[offset + 1] << 16) |
-                     (bytes[offset + 2] << 8) |
-                     bytes[offset + 3];
-
-      offset += 4;
-
-      if (offset + length > bytes.length) {
-        throw Exception('Unexpected end of file while reading metadata payload');
-      }
-
-      final payload = bytes.sublist(offset, offset + length);
-      offset += length;
-
-      // Discard existing VORBIS_COMMENT (4) and PICTURE (6) blocks
-      if (blockType != 4 && blockType != 6) {
-        keptBlocks.add(_MetadataBlock(type: blockType, payload: payload));
-      }
-    }
-
-    final audioData = bytes.sublist(offset);
-
-    // Construct the new list of metadata blocks
     final newBlocks = <_MetadataBlock>[...keptBlocks];
-
-    // Create Vorbis Comment block
     final commentPayload = _createVorbisCommentPayload(tags);
     newBlocks.add(_MetadataBlock(type: 4, payload: commentPayload));
-
-    // Create Picture block if coverBytes is provided
     if (coverBytes != null && coverBytes.isNotEmpty) {
-      final picturePayload = _createPicturePayload(coverBytes);
+      final picturePayload = _createPicturePayload(
+        coverBytes,
+        coverMimeType ?? _detectPictureMime(coverBytes),
+      );
       newBlocks.add(_MetadataBlock(type: 6, payload: picturePayload));
     }
 
-    // Build the final bytes
-    final builder = BytesBuilder();
-    builder.add(Uint8List.fromList([0x66, 0x4C, 0x61, 0x43])); // 'fLaC'
+    final tempFile = File('${file.path}.tagging');
+    try {
+      final output = tempFile.openWrite(mode: FileMode.write);
+      try {
+        output.add(const [0x66, 0x4C, 0x61, 0x43]);
+        for (var i = 0; i < newBlocks.length; i++) {
+          final block = newBlocks[i];
+          var headerByte = block.type;
+          if (i == newBlocks.length - 1) {
+            headerByte |= 0x80;
+          }
 
-    for (int i = 0; i < newBlocks.length; i++) {
-      final block = newBlocks[i];
-      final isLast = (i == newBlocks.length - 1);
-
-      // Header byte: MSB is isLast, lower 7 bits is blockType
-      int headerByte = block.type;
-      if (isLast) {
-        headerByte |= 0x80;
+          final length = block.payload.length;
+          if (length > 0xFFFFFF) {
+            throw Exception('FLAC metadata block is too large.');
+          }
+          output.add([
+            headerByte,
+            (length >> 16) & 0xFF,
+            (length >> 8) & 0xFF,
+            length & 0xFF,
+          ]);
+          output.add(block.payload);
+        }
+        await output.addStream(file.openRead(audioOffset));
+      } finally {
+        await output.close();
       }
 
-      builder.addByte(headerByte);
-
-      // Length: 24-bit big-endian
-      final len = block.payload.length;
-      builder.addByte((len >> 16) & 0xFF);
-      builder.addByte((len >> 8) & 0xFF);
-      builder.addByte(len & 0xFF);
-
-      builder.add(block.payload);
+      try {
+        await tempFile.rename(file.path);
+      } on FileSystemException {
+        await tempFile.copy(file.path);
+        await tempFile.delete();
+      }
+    } catch (_) {
+      try {
+        if (await tempFile.exists()) await tempFile.delete();
+      } catch (_) {}
+      rethrow;
     }
+  }
 
-    builder.add(audioData);
-
-    await file.writeAsBytes(builder.toBytes());
+  static Future<Uint8List> _readExactly(
+    RandomAccessFile file,
+    int length,
+  ) async {
+    final bytes = await file.read(length);
+    if (bytes.length != length) {
+      throw Exception('Unexpected end of file while reading FLAC metadata.');
+    }
+    return bytes;
   }
 
   static Uint8List _createVorbisCommentPayload(Map<String, String> tags) {
@@ -120,15 +132,16 @@ class FlacTagger {
     return builder.toBytes();
   }
 
-  static Uint8List _createPicturePayload(Uint8List coverBytes) {
+  static Uint8List _createPicturePayload(
+    Uint8List coverBytes,
+    String mimeType,
+  ) {
     final builder = BytesBuilder();
 
     // Picture type: 3 (Front Cover) - 4 bytes big-endian
     builder.add(_intToUint32BE(3));
 
-    // MIME type: "image/jpeg"
-    final mimeStr = 'image/jpeg';
-    final mimeBytes = ascii.encode(mimeStr);
+    final mimeBytes = ascii.encode(mimeType);
     builder.add(_intToUint32BE(mimeBytes.length));
     builder.add(mimeBytes);
 
@@ -146,6 +159,24 @@ class FlacTagger {
     builder.add(coverBytes);
 
     return builder.toBytes();
+  }
+
+  static String _detectPictureMime(Uint8List bytes) {
+    if (bytes.length >= 8 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47) {
+      return 'image/png';
+    }
+    if (bytes.length >= 6) {
+      final signature = ascii.decode(bytes.sublist(0, 6), allowInvalid: true);
+      if (signature == 'GIF87a' || signature == 'GIF89a') return 'image/gif';
+    }
+    if (bytes.length >= 2 && bytes[0] == 0x42 && bytes[1] == 0x4D) {
+      return 'image/bmp';
+    }
+    return 'image/jpeg';
   }
 
   static Uint8List _intToUint32LE(int val) {

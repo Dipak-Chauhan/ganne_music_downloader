@@ -35,13 +35,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   late final AnimationController _logoController;
   late final Animation<double> _logoScale;
 
-  List<QobuzTrack> _filteredTracks = [];
-  List<QobuzAlbum> _filteredAlbums = [];
-
   List<String> _searchHistory = [];
   final bool _hiResOnly = false;
-  String _searchSortOrder = 'default'; // 'default', 'title', 'artist'
+  String _searchSortOrder = 'default';
   bool _showSortMenu = false;
+  int _albumNextOffset = 0;
+  int _trackNextOffset = 0;
+  int _searchRequestId = 0;
+  String _activeQuery = '';
 
   @override
   bool get wantKeepAlive => true;
@@ -121,10 +122,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     super.dispose();
   }
 
-  void _updateFilteredData() {
-    _filteredAlbums = _getFilteredAlbums();
-    _filteredTracks = _getFilteredTracks();
-  }
+  List<QobuzAlbum> get _filteredAlbums => _getFilteredAlbums();
+  List<QobuzTrack> get _filteredTracks => _getFilteredTracks();
 
   void _onSearchChanged() {
     setState(() {}); // Update clear icon
@@ -173,25 +172,29 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   int get _currentTotal => _searchField == 'albums'
       ? (_results?.albums?.total ?? 0)
       : (_results?.tracks?.total ?? 0);
-  int get _currentCount => _searchField == 'albums'
-      ? (_results?.albums?.items?.length ?? 0)
-      : (_results?.tracks?.items?.length ?? 0);
 
   void _onSearch(String query) async {
-    if (query.trim().isEmpty) return;
+    final normalizedQuery = query.trim();
+    if (normalizedQuery.isEmpty) return;
+    final requestId = ++_searchRequestId;
     _debounce?.cancel();
-    _addToHistory(query);
+    _addToHistory(normalizedQuery);
     setState(() {
+      _activeQuery = normalizedQuery;
       _isLoading = true;
+      _isLoadingMore = false;
       _error = null;
       _showSuggestions = false;
+      _albumNextOffset = 0;
+      _trackNextOffset = 0;
     });
     _searchFocus.unfocus();
     try {
       final settings = ref.read(appSettingsProvider);
-      var results = await ref
+      final unfilteredResults = await ref
           .read(qobuzServiceProvider)
-          .search(query, limit: 50);
+          .search(normalizedQuery, limit: 50);
+      var results = unfilteredResults;
 
       // Explicit content filter
       if (!settings.allowExplicit) {
@@ -220,12 +223,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         );
       }
 
+      if (!mounted || requestId != _searchRequestId) return;
       setState(() {
         _results = results;
+        _albumNextOffset =
+            (unfilteredResults.albums?.offset ?? 0) +
+            (unfilteredResults.albums?.items?.length ?? 0);
+        _trackNextOffset =
+            (unfilteredResults.tracks?.offset ?? 0) +
+            (unfilteredResults.tracks?.items?.length ?? 0);
         _isLoading = false;
-        _updateFilteredData();
       });
     } catch (e) {
+      if (!mounted || requestId != _searchRequestId) return;
       setState(() {
         _error = e.toString();
         _isLoading = false;
@@ -234,15 +244,26 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   }
 
   void _loadMore() async {
-    if (_isLoadingMore || _results == null || _currentCount >= _currentTotal) {
+    final searchField = _searchField;
+    final offset = searchField == 'albums'
+        ? _albumNextOffset
+        : _trackNextOffset;
+    if (_isLoading ||
+        _isLoadingMore ||
+        _results == null ||
+        offset >= _currentTotal) {
       return;
     }
+    final requestId = _searchRequestId;
+    final query = _activeQuery;
+    if (query.isEmpty) return;
     setState(() => _isLoadingMore = true);
     try {
       final settings = ref.read(appSettingsProvider);
-      var more = await ref
+      final unfilteredMore = await ref
           .read(qobuzServiceProvider)
-          .search(_searchController.text, limit: 50, offset: _currentCount);
+          .search(query, limit: 50, offset: offset);
+      var more = unfilteredMore;
 
       // Explicit content filter
       if (!settings.allowExplicit) {
@@ -271,41 +292,58 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         );
       }
 
+      if (!mounted ||
+          requestId != _searchRequestId ||
+          searchField != _searchField) {
+        if (mounted && requestId == _searchRequestId) {
+          setState(() => _isLoadingMore = false);
+        }
+        return;
+      }
       setState(() {
-        if (_searchField == 'albums' && more.albums?.items != null) {
+        if (searchField == 'albums') {
+          final returned = unfilteredMore.albums?.items?.length ?? 0;
+          _albumNextOffset = returned == 0 ? _currentTotal : offset + returned;
+        } else {
+          final returned = unfilteredMore.tracks?.items?.length ?? 0;
+          _trackNextOffset = returned == 0 ? _currentTotal : offset + returned;
+        }
+        if (searchField == 'albums' && more.albums?.items != null) {
           final existing = _results!.albums!.items ?? [];
           _results = SearchResults(
             _results!.query,
             AlbumsResult(
               _results!.albums!.limit,
-              _currentCount,
+              offset,
               _results!.albums!.total,
               [...existing, ...more.albums!.items!],
             ),
             _results!.tracks,
           );
-        } else if (_searchField == 'tracks' && more.tracks?.items != null) {
+        } else if (searchField == 'tracks' && more.tracks?.items != null) {
           final existing = _results!.tracks!.items ?? [];
           _results = SearchResults(
             _results!.query,
             _results!.albums,
             TracksResult(
               _results!.tracks!.limit,
-              _currentCount,
+              offset,
               _results!.tracks!.total,
               [...existing, ...more.tracks!.items!],
             ),
           );
         }
         _isLoadingMore = false;
-        _updateFilteredData();
       });
     } catch (_) {
-      setState(() => _isLoadingMore = false);
+      if (mounted && requestId == _searchRequestId) {
+        setState(() => _isLoadingMore = false);
+      }
     }
   }
 
   void _resetSearch() {
+    _searchRequestId++;
     _logoController.forward(from: 0);
     setState(() {
       _searchController.clear();
@@ -314,7 +352,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       _error = null;
       _searchField = 'albums';
       _showSuggestions = false;
-      _updateFilteredData();
+      _albumNextOffset = 0;
+      _trackNextOffset = 0;
+      _activeQuery = '';
+      _isLoading = false;
+      _isLoadingMore = false;
     });
   }
 
@@ -328,15 +370,29 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     return DateTime.fromMillisecondsSinceEpoch(t * 1000).year.toString();
   }
 
+  int _compareTitles(String first, String second) {
+    final normalized = first.toLowerCase().compareTo(second.toLowerCase());
+    return normalized != 0 ? normalized : first.compareTo(second);
+  }
+
+  int _compareReleaseDates(
+    int? first,
+    int? second, {
+    required bool newestFirst,
+  }) {
+    final firstIsUnknown = first == null || first <= 0;
+    final secondIsUnknown = second == null || second <= 0;
+    if (firstIsUnknown || secondIsUnknown) {
+      if (firstIsUnknown && secondIsUnknown) return 0;
+      return firstIsUnknown ? 1 : -1;
+    }
+    return newestFirst ? second.compareTo(first) : first.compareTo(second);
+  }
+
   void _downloadTrack(QobuzTrack track) async {
     final settings = ref.read(appSettingsProvider);
 
-    // Format complex artist string
-    final artistNames = track.album?.artists?.map((a) => a.name).toList();
-    final artistString = DownloadService.joinArtists(
-      artistNames,
-      fallback: track.performer?.name ?? track.album?.artist?.name ?? 'Unknown',
-    );
+    final artistString = DownloadService.artistNameForTrack(track);
 
     final albumArtist = track.album?.artist?.name ?? artistString;
 
@@ -349,12 +405,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           artistName: artistString,
           albumArtist: albumArtist,
           trackVersion: track.version,
+          isrc: track.isrc,
           trackNumber: track.trackNumber,
+          discNumber: track.mediaNumber,
+          totalTracks: track.album?.tracksCount,
+          totalDiscs: track.album?.mediaCount,
+          durationSeconds: track.duration,
           year: track.album?.releasedAt != null
               ? DateTime.fromMillisecondsSinceEpoch(
                   track.album!.releasedAt! * 1000,
                 ).year
               : null,
+          genre: track.album?.genre?.name,
+          copyright: track.album?.copyright,
+          label: track.album?.label,
+          barcode: track.album?.upc,
           coverUrl: track.album?.getCoverLargeUrl() ?? '',
           quality: settings.qualityId,
         );
@@ -372,56 +437,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     }
   }
 
-  void _showAlbumDownloadOptions(QobuzAlbum album) {
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Download Album',
-                style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                album.title,
-                style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              FilledButton.tonalIcon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _downloadAlbumIndividual(album);
-                },
-                icon: const Icon(Icons.library_music_outlined),
-                label: const Text('Download as individual songs'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
-                ),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _downloadAlbumZip(album);
-                },
-                icon: const Icon(Icons.archive_outlined),
-                label: const Text('Download as ZIP archive'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  void _downloadAlbum(QobuzAlbum album) {
+    if (ref.read(appSettingsProvider).zipAlbums) {
+      _downloadAlbumZip(album);
+    } else {
+      _downloadAlbumIndividual(album);
+    }
   }
 
   void _downloadAlbumIndividual(QobuzAlbum album) async {
@@ -429,16 +450,38 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     try {
       final data = await ref.read(qobuzServiceProvider).getAlbumInfo(album.id!);
       if (data.tracks?.items != null) {
+        final albumInfo = data.album ?? album;
         final service = ref.read(downloadServiceProvider);
         int queued = 0;
         int skipped = 0;
         for (var track in data.tracks!.items!) {
+          final artistName = DownloadService.artistNameForTrack(
+            track,
+            album: albumInfo,
+          );
           final status = await service.queueTrack(
             trackId: track.id,
             trackTitle: track.title,
-            albumTitle: album.title,
-            artistName: album.artist?.name ?? 'Unknown',
-            coverUrl: album.getCoverLargeUrl(),
+            albumTitle: albumInfo.title,
+            artistName: artistName,
+            albumArtist: albumInfo.artist?.name ?? artistName,
+            trackVersion: track.version ?? albumInfo.version,
+            isrc: track.isrc,
+            trackNumber: track.trackNumber,
+            discNumber: track.mediaNumber,
+            totalTracks: albumInfo.tracksCount ?? data.tracks?.items?.length,
+            totalDiscs: albumInfo.mediaCount,
+            durationSeconds: track.duration,
+            year: albumInfo.releasedAt != null
+                ? DateTime.fromMillisecondsSinceEpoch(
+                    albumInfo.releasedAt! * 1000,
+                  ).year
+                : null,
+            genre: albumInfo.genre?.name,
+            copyright: albumInfo.copyright,
+            label: albumInfo.label,
+            barcode: albumInfo.upc,
+            coverUrl: albumInfo.getCoverLargeUrl(),
             quality: settings.qualityId,
           );
           if (status == 'queued') {
@@ -477,7 +520,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     final settings = ref.read(appSettingsProvider);
     try {
       final data = await ref.read(qobuzServiceProvider).getAlbumInfo(album.id!);
-      ref
+      final operation = ref
           .read(downloadServiceProvider)
           .downloadAlbumAsZip(
             album: album,
@@ -487,6 +530,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       if (mounted) {
         AppToast.info(context, 'ZIP download started for "${album.title}"');
       }
+      await operation;
     } catch (e) {
       if (mounted) {
         AppToast.error(context, 'Failed: $e');
@@ -508,16 +552,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     super.build(context); // AutomaticKeepAliveClientMixin
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final hasResults = _results != null;
+    final hasVisibleQuery = _searchController.text.trim().isNotEmpty;
+    final hasResults = hasVisibleQuery && _results != null;
+    final isLoading = hasVisibleQuery && _isLoading;
+    final error = hasVisibleQuery ? _error : null;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return GestureDetector(
-      onTap: () {
+    return Listener(
+      onPointerDown: (_) {
         if (_showSuggestions) setState(() => _showSuggestions = false);
         if (_showSortMenu) setState(() => _showSortMenu = false);
         _searchFocus.unfocus();
       },
-      behavior: HitTestBehavior.opaque,
       child: SafeArea(
         child: Stack(
           children: [
@@ -573,7 +619,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                   ),
                 ),
 
-                if (hasResults || _isLoading)
+                if (hasResults || isLoading)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
@@ -663,7 +709,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                     ),
                   ),
 
-                if (_isLoading)
+                if (isLoading)
                   SliverFillRemaining(
                     hasScrollBody: false,
                     child: Center(
@@ -674,7 +720,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                       ),
                     ),
                   )
-                else if (_error != null)
+                else if (error != null)
                   SliverFillRemaining(
                     hasScrollBody: false,
                     child: Center(
@@ -686,7 +732,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 32),
                             child: Text(
-                              _error!,
+                              error,
                               textAlign: TextAlign.center,
                               style: tt.bodyMedium?.copyWith(color: cs.error),
                             ),
@@ -770,7 +816,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                 else
                   _buildTracksList(cs, tt),
 
-                if (_isLoadingMore)
+                if (hasVisibleQuery && _isLoadingMore)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
@@ -789,7 +835,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
             if (_showSuggestions && _suggestions != null)
               _buildSuggestionsOverlay(cs, tt),
 
-            if (_showSortMenu) _buildSortMenuOverlay(cs, tt),
+            if (hasVisibleQuery && _showSortMenu) _buildSortMenuOverlay(cs, tt),
           ],
         ),
       ),
@@ -856,26 +902,55 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                                   _searchFocus.unfocus();
                                   Navigator.of(context).push(
                                     PageRouteBuilder(
-                                      pageBuilder: (context, animation, secondaryAnimation) =>
-                                          AlbumDetailScreen(album: album),
-                                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                        final slideTween = Tween<Offset>(
-                                          begin: const Offset(0.0, 0.08),
-                                          end: Offset.zero,
-                                        ).chain(CurveTween(curve: Curves.easeOutCubic));
-                                        final fadeTween = Tween<double>(
-                                          begin: 0.0,
-                                          end: 1.0,
-                                        ).chain(CurveTween(curve: Curves.easeOut));
-                                        return SlideTransition(
-                                          position: animation.drive(slideTween),
-                                          child: FadeTransition(
-                                            opacity: animation.drive(fadeTween),
-                                            child: child,
-                                          ),
-                                        );
-                                      },
-                                      transitionDuration: const Duration(milliseconds: 350),
+                                      pageBuilder:
+                                          (
+                                            context,
+                                            animation,
+                                            secondaryAnimation,
+                                          ) => AlbumDetailScreen(album: album),
+                                      transitionsBuilder:
+                                          (
+                                            context,
+                                            animation,
+                                            secondaryAnimation,
+                                            child,
+                                          ) {
+                                            final slideTween =
+                                                Tween<Offset>(
+                                                  begin: const Offset(
+                                                    0.0,
+                                                    0.08,
+                                                  ),
+                                                  end: Offset.zero,
+                                                ).chain(
+                                                  CurveTween(
+                                                    curve: Curves.easeOutCubic,
+                                                  ),
+                                                );
+                                            final fadeTween =
+                                                Tween<double>(
+                                                  begin: 0.0,
+                                                  end: 1.0,
+                                                ).chain(
+                                                  CurveTween(
+                                                    curve: Curves.easeOut,
+                                                  ),
+                                                );
+                                            return SlideTransition(
+                                              position: animation.drive(
+                                                slideTween,
+                                              ),
+                                              child: FadeTransition(
+                                                opacity: animation.drive(
+                                                  fadeTween,
+                                                ),
+                                                child: child,
+                                              ),
+                                            );
+                                          },
+                                      transitionDuration: const Duration(
+                                        milliseconds: 350,
+                                      ),
                                     ),
                                   );
                                 },
@@ -1022,7 +1097,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         setState(() {
           _searchSortOrder = value;
           _showSortMenu = false;
-          _updateFilteredData();
         });
       },
       child: Padding(
@@ -1053,23 +1127,37 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   }
 
   List<QobuzAlbum> _getFilteredAlbums() {
-    var list = _results?.albums?.items ?? [];
+    var list = List<QobuzAlbum>.from(_results?.albums?.items ?? const []);
     if (_hiResOnly) {
       list = list.where((a) => a.hires == true).toList();
     }
     if (_searchSortOrder == 'title') {
-      list = List<QobuzAlbum>.from(list)
-        ..sort((a, b) => (a.title).compareTo(b.title));
+      list.sort((a, b) {
+        final title = _compareTitles(a.title, b.title);
+        return title != 0 ? title : (a.id ?? '').compareTo(b.id ?? '');
+      });
     } else if (_searchSortOrder == 'newest') {
-      list = List<QobuzAlbum>.from(list)
-        ..sort((a, b) => (b.releasedAt ?? 0).compareTo(a.releasedAt ?? 0));
-    } else if (_searchSortOrder == 'oldest') {
-      list = List<QobuzAlbum>.from(list)
-        ..sort(
-          (a, b) => (a.releasedAt ?? 9999999999).compareTo(
-            b.releasedAt ?? 9999999999,
-          ),
+      list.sort((a, b) {
+        final releaseDate = _compareReleaseDates(
+          a.releasedAt,
+          b.releasedAt,
+          newestFirst: true,
         );
+        return releaseDate != 0
+            ? releaseDate
+            : _compareTitles(a.title, b.title);
+      });
+    } else if (_searchSortOrder == 'oldest') {
+      list.sort((a, b) {
+        final releaseDate = _compareReleaseDates(
+          a.releasedAt,
+          b.releasedAt,
+          newestFirst: false,
+        );
+        return releaseDate != 0
+            ? releaseDate
+            : _compareTitles(a.title, b.title);
+      });
     }
     return list;
   }
@@ -1105,27 +1193,28 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
               PageRouteBuilder(
                 pageBuilder: (context, animation, secondaryAnimation) =>
                     AlbumDetailScreen(album: album),
-                transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                  final slideTween = Tween<Offset>(
-                    begin: const Offset(0.0, 0.08),
-                    end: Offset.zero,
-                  ).chain(CurveTween(curve: Curves.easeOutCubic));
-                  final fadeTween = Tween<double>(
-                    begin: 0.0,
-                    end: 1.0,
-                  ).chain(CurveTween(curve: Curves.easeOut));
-                  return SlideTransition(
-                    position: animation.drive(slideTween),
-                    child: FadeTransition(
-                      opacity: animation.drive(fadeTween),
-                      child: child,
-                    ),
-                  );
-                },
+                transitionsBuilder:
+                    (context, animation, secondaryAnimation, child) {
+                      final slideTween = Tween<Offset>(
+                        begin: const Offset(0.0, 0.08),
+                        end: Offset.zero,
+                      ).chain(CurveTween(curve: Curves.easeOutCubic));
+                      final fadeTween = Tween<double>(
+                        begin: 0.0,
+                        end: 1.0,
+                      ).chain(CurveTween(curve: Curves.easeOut));
+                      return SlideTransition(
+                        position: animation.drive(slideTween),
+                        child: FadeTransition(
+                          opacity: animation.drive(fadeTween),
+                          child: child,
+                        ),
+                      );
+                    },
                 transitionDuration: const Duration(milliseconds: 350),
               ),
             ),
-            onDownload: () => _showAlbumDownloadOptions(album),
+            onDownload: () => _downloadAlbum(album),
           );
         }, childCount: albums.length),
       ),
@@ -1133,26 +1222,37 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   }
 
   List<QobuzTrack> _getFilteredTracks() {
-    var list = _results?.tracks?.items ?? [];
+    var list = List<QobuzTrack>.from(_results?.tracks?.items ?? const []);
     if (_hiResOnly) {
       list = list.where((t) => t.hires == true).toList();
     }
     if (_searchSortOrder == 'title') {
-      list = List<QobuzTrack>.from(list)
-        ..sort((a, b) => (a.title).compareTo(b.title));
+      list.sort((a, b) {
+        final title = _compareTitles(a.title, b.title);
+        return title != 0 ? title : a.id.compareTo(b.id);
+      });
     } else if (_searchSortOrder == 'newest') {
-      list = List<QobuzTrack>.from(list)
-        ..sort(
-          (a, b) =>
-              (b.album?.releasedAt ?? 0).compareTo(a.album?.releasedAt ?? 0),
+      list.sort((a, b) {
+        final releaseDate = _compareReleaseDates(
+          a.album?.releasedAt,
+          b.album?.releasedAt,
+          newestFirst: true,
         );
+        return releaseDate != 0
+            ? releaseDate
+            : _compareTitles(a.title, b.title);
+      });
     } else if (_searchSortOrder == 'oldest') {
-      list = List<QobuzTrack>.from(list)
-        ..sort(
-          (a, b) => (a.album?.releasedAt ?? 9999999999).compareTo(
-            b.album?.releasedAt ?? 9999999999,
-          ),
+      list.sort((a, b) {
+        final releaseDate = _compareReleaseDates(
+          a.album?.releasedAt,
+          b.album?.releasedAt,
+          newestFirst: false,
         );
+        return releaseDate != 0
+            ? releaseDate
+            : _compareTitles(a.title, b.title);
+      });
     }
     return list;
   }
@@ -1235,8 +1335,7 @@ class _TrackCardState extends ConsumerState<_TrackCard> {
     final track = widget.track;
     final coverUrl = track.album?.getCoverLargeUrl() ?? '';
     final progress = _progress;
-    final isDownloading =
-        progress != null && progress >= 0 && progress < 1.0;
+    final isDownloading = progress != null && progress >= 0 && progress < 1.0;
     final isCompleted = progress != null && progress >= 1.0;
     final isFailed = progress != null && progress < 0;
 
@@ -1252,23 +1351,24 @@ class _TrackCardState extends ConsumerState<_TrackCard> {
                   PageRouteBuilder(
                     pageBuilder: (context, animation, secondaryAnimation) =>
                         AlbumDetailScreen(album: track.album!),
-                    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                      final slideTween = Tween<Offset>(
-                        begin: const Offset(0.0, 0.08),
-                        end: Offset.zero,
-                      ).chain(CurveTween(curve: Curves.easeOutCubic));
-                      final fadeTween = Tween<double>(
-                        begin: 0.0,
-                        end: 1.0,
-                      ).chain(CurveTween(curve: Curves.easeOut));
-                      return SlideTransition(
-                        position: animation.drive(slideTween),
-                        child: FadeTransition(
-                          opacity: animation.drive(fadeTween),
-                          child: child,
-                        ),
-                      );
-                    },
+                    transitionsBuilder:
+                        (context, animation, secondaryAnimation, child) {
+                          final slideTween = Tween<Offset>(
+                            begin: const Offset(0.0, 0.08),
+                            end: Offset.zero,
+                          ).chain(CurveTween(curve: Curves.easeOutCubic));
+                          final fadeTween = Tween<double>(
+                            begin: 0.0,
+                            end: 1.0,
+                          ).chain(CurveTween(curve: Curves.easeOut));
+                          return SlideTransition(
+                            position: animation.drive(slideTween),
+                            child: FadeTransition(
+                              opacity: animation.drive(fadeTween),
+                              child: child,
+                            ),
+                          );
+                        },
                     transitionDuration: const Duration(milliseconds: 350),
                   ),
                 );

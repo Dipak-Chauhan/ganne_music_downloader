@@ -7,7 +7,14 @@ class ApiClient {
   final SecureStorage _secureStorage;
 
   ApiClient(this._secureStorage)
-    : _dio = Dio(BaseOptions(baseUrl: ApiConstants.qobuzBaseUrl)) {
+    : _dio = Dio(
+        BaseOptions(
+          baseUrl: ApiConstants.qobuzBaseUrl,
+          connectTimeout: const Duration(seconds: 15),
+          sendTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 30),
+        ),
+      ) {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {

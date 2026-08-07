@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../../data/local/database.dart';
@@ -53,6 +55,9 @@ class PlaybackState {
 }
 
 class AudioPlayerNotifier extends Notifier<PlaybackState> {
+  static const MethodChannel _mediaChannel = MethodChannel(
+    'com.ganne.media_scanner',
+  );
   late final AudioPlayer _player;
   List<int> _shuffledIndices = [];
 
@@ -111,7 +116,17 @@ class AudioPlayerNotifier extends Notifier<PlaybackState> {
 
     try {
       await _player.stop();
-      await _player.setSourceDeviceFile(track.savePath!);
+      final savePath = track.savePath!;
+      final playbackPath = savePath.startsWith('content://')
+          ? await _mediaChannel.invokeMethod<String>(
+              'copyDocumentForPlayback',
+              {'uri': savePath},
+            )
+          : savePath;
+      if (playbackPath == null || playbackPath.isEmpty) {
+        throw const FileSystemException('Unable to open downloaded audio.');
+      }
+      await _player.setSourceDeviceFile(playbackPath);
       await _player.resume();
     } catch (e) {
       debugPrint('Error playing track: $e');
@@ -135,6 +150,10 @@ class AudioPlayerNotifier extends Notifier<PlaybackState> {
     if (state.isPlaying) {
       await _player.pause();
     } else {
+      if (state.duration > Duration.zero && state.position >= state.duration) {
+        await _player.seek(Duration.zero);
+        state = state.copyWith(position: Duration.zero);
+      }
       await _player.resume();
     }
   }
@@ -188,9 +207,8 @@ class AudioPlayerNotifier extends Notifier<PlaybackState> {
       );
       await _playCurrent();
     } else {
-      // Stopped at end of queue
       await _player.stop();
-      state = state.copyWith(currentTrack: () => null, isPlaying: false);
+      state = state.copyWith(isPlaying: false, position: state.duration);
     }
   }
 

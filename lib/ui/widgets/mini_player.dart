@@ -17,6 +17,10 @@ class MiniPlayer extends ConsumerWidget {
     final tt = Theme.of(context).textTheme;
 
     if (track == null) return const SizedBox.shrink();
+    final subtitle =
+        track.albumTitle.isNotEmpty && track.albumTitle != track.trackTitle
+        ? '${track.artistName} • ${track.albumTitle}'
+        : track.artistName;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -26,48 +30,69 @@ class MiniPlayer extends ConsumerWidget {
         onDismissed: (_) {
           notifier.stop();
         },
-        child: GlassmorphicContainer(
-          borderRadius: 18,
-          blur: 20,
-          padding: EdgeInsets.zero,
-          margin: EdgeInsets.zero,
-          child: InkWell(
-            onTap: () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                useSafeArea: true,
-                showDragHandle: false,
-                backgroundColor: Colors.transparent,
-                builder: (_) => const FullPlayer(),
-              );
-            },
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Micro Progress Bar at the top of the card (Isolated from main card rebuilds)
-                const _MiniProgressBar(),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+        child: Semantics(
+          container: true,
+          button: true,
+          label: 'Open now playing for ${track.trackTitle}',
+          child: GlassmorphicContainer(
+            borderRadius: 18,
+            blur: 20,
+            padding: EdgeInsets.zero,
+            margin: EdgeInsets.zero,
+            child: InkWell(
+              onTap: () {
+                final size = MediaQuery.sizeOf(context);
+                showModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  showDragHandle: false,
+                  backgroundColor: Colors.transparent,
+                  barrierColor: Colors.black.withAlpha(150),
+                  constraints: BoxConstraints(
+                    maxWidth: size.width >= 800 ? 960 : size.width,
+                    maxHeight: size.height,
                   ),
-                  child: Row(
-                    children: [
-                      // Spinning / Rounded album art
-                      Hero(
-                        tag: 'player_album_art',
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: track.coverUrl.isNotEmpty
-                              ? CachedNetworkImage(
-                                  imageUrl: track.coverUrl,
-                                  width: 42,
-                                  height: 42,
-                                  fit: BoxFit.cover,
-                                  memCacheWidth: 84, // Optimized cache size
-                                  memCacheHeight: 84,
-                                  placeholder: (_, a) => Container(
+                  builder: (_) => const FullPlayer(),
+                );
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Micro Progress Bar at the top of the card (Isolated from main card rebuilds)
+                  const _MiniProgressBar(),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      children: [
+                        // Spinning / Rounded album art
+                        Hero(
+                          tag: 'player_album_art',
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: track.coverUrl.isNotEmpty
+                                ? CachedNetworkImage(
+                                    imageUrl: track.coverUrl,
+                                    width: 42,
+                                    height: 42,
+                                    fit: BoxFit.cover,
+                                    memCacheWidth: 84, // Optimized cache size
+                                    memCacheHeight: 84,
+                                    placeholder: (_, a) => Container(
+                                      width: 42,
+                                      height: 42,
+                                      color: cs.surfaceContainerHighest,
+                                      child: Icon(
+                                        Icons.music_note,
+                                        size: 18,
+                                        color: cs.onSurfaceVariant,
+                                      ),
+                                    ),
+                                  )
+                                : Container(
                                     width: 42,
                                     height: 42,
                                     color: cs.surfaceContainerHighest,
@@ -77,83 +102,75 @@ class MiniPlayer extends ConsumerWidget {
                                       color: cs.onSurfaceVariant,
                                     ),
                                   ),
-                                )
-                              : Container(
-                                  width: 42,
-                                  height: 42,
-                                  color: cs.surfaceContainerHighest,
-                                  child: Icon(
-                                    Icons.music_note,
-                                    size: 18,
-                                    color: cs.onSurfaceVariant,
-                                  ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+
+                        // Text details
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                track.trackTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: tt.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.w700,
                                 ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-
-                      // Text details
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              track.trackTitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: tt.labelLarge?.copyWith(
-                                fontWeight: FontWeight.w700,
                               ),
-                            ),
-                            Text(
-                              track.artistName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: tt.bodySmall?.copyWith(
-                                color: cs.onSurfaceVariant,
+                              Text(
+                                subtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: tt.bodySmall?.copyWith(
+                                  color: cs.onSurfaceVariant,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
+                        const SizedBox(width: 8),
 
-                      // Play/Pause button
-                      IconButton(
-                        icon: Icon(
-                          isPlaying
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
-                          size: 28,
-                          color: cs.primary,
+                        // Play/Pause button
+                        IconButton(
+                          tooltip: isPlaying ? 'Pause' : 'Play',
+                          icon: Icon(
+                            isPlaying
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                            size: 28,
+                            color: cs.primary,
+                          ),
+                          onPressed: notifier.togglePlay,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 40,
+                            minHeight: 40,
+                          ),
                         ),
-                        onPressed: notifier.togglePlay,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 40,
-                          minHeight: 40,
-                        ),
-                      ),
 
-                      // Next button
-                      IconButton(
-                        icon: Icon(
-                          Icons.skip_next_rounded,
-                          size: 26,
-                          color: cs.onSurfaceVariant,
+                        // Next button
+                        IconButton(
+                          tooltip: 'Next track',
+                          icon: Icon(
+                            Icons.skip_next_rounded,
+                            size: 26,
+                            color: cs.onSurfaceVariant,
+                          ),
+                          onPressed: notifier.next,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 40,
+                            minHeight: 40,
+                          ),
                         ),
-                        onPressed: notifier.next,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 40,
-                          minHeight: 40,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -176,11 +193,17 @@ class _MiniProgressBar extends ConsumerWidget {
         ? position.inMilliseconds / duration.inMilliseconds
         : 0.0;
 
-    return LinearProgressIndicator(
-      value: progressVal.clamp(0.0, 1.0),
-      minHeight: 2.5,
-      color: cs.primary,
-      backgroundColor: cs.outlineVariant.withAlpha(50),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(2),
+        child: LinearProgressIndicator(
+          value: progressVal.clamp(0.0, 1.0),
+          minHeight: 2,
+          color: cs.primary.withAlpha(210),
+          backgroundColor: cs.outlineVariant.withAlpha(40),
+        ),
+      ),
     );
   }
 }

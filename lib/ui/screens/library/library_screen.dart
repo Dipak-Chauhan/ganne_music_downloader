@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:path/path.dart' as p;
 import '../../../data/local/database.dart';
 import '../../../data/providers/service_providers.dart';
 import '../../../services/player/player_service.dart';
@@ -79,35 +80,74 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     return 0.0;
   }
 
-  Widget _buildQualityBadge(String quality, ColorScheme cs, TextTheme tt) {
+  Widget _buildQualityBadge(
+    String quality,
+    String? savePath,
+    ColorScheme cs,
+    TextTheme tt,
+  ) {
     String label = '';
     Color bgColor = Colors.transparent;
     Color textColor = Colors.transparent;
-    switch (quality) {
-      case '5':
-        label = 'MP3 320k';
+    switch (p.extension(savePath ?? '').toLowerCase()) {
+      case '.mp3':
+        label = 'MP3';
         bgColor = cs.surfaceContainerHighest;
         textColor = cs.onSurfaceVariant;
         break;
-      case '6':
-        label = 'FLAC 16-Bit';
+      case '.m4a':
+        label = 'M4A';
         bgColor = cs.secondaryContainer;
         textColor = cs.onSecondaryContainer;
         break;
-      case '7':
-        label = 'FLAC 24-Bit / 96k';
+      case '.aac':
+        label = 'AAC';
+        bgColor = cs.secondaryContainer;
+        textColor = cs.onSecondaryContainer;
+        break;
+      case '.ogg':
+        label = 'OGG';
         bgColor = cs.tertiaryContainer;
         textColor = cs.onTertiaryContainer;
         break;
-      case '27':
-        label = 'FLAC 24-Bit / 192k';
+      case '.wav':
+        label = 'WAV';
+        bgColor = cs.primaryContainer;
+        textColor = cs.onPrimaryContainer;
+        break;
+      case '.flac':
+        label = 'FLAC';
         bgColor = cs.primaryContainer;
         textColor = cs.onPrimaryContainer;
         break;
       default:
-        label = 'Lossless';
-        bgColor = cs.secondaryContainer;
-        textColor = cs.onSecondaryContainer;
+        switch (quality) {
+          case '5':
+            label = 'MP3 320k';
+            bgColor = cs.surfaceContainerHighest;
+            textColor = cs.onSurfaceVariant;
+            break;
+          case '6':
+            label = 'FLAC 16-Bit';
+            bgColor = cs.secondaryContainer;
+            textColor = cs.onSecondaryContainer;
+            break;
+          case '7':
+            label = 'FLAC 24-Bit / 96k';
+            bgColor = cs.tertiaryContainer;
+            textColor = cs.onTertiaryContainer;
+            break;
+          case '27':
+            label = 'FLAC 24-Bit / 192k';
+            bgColor = cs.primaryContainer;
+            textColor = cs.onPrimaryContainer;
+            break;
+          default:
+            label = 'Lossless';
+            bgColor = cs.secondaryContainer;
+            textColor = cs.onSecondaryContainer;
+        }
+        break;
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -252,7 +292,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 8),
-                          _buildQualityBadge(task.quality, cs, tt),
+                          _buildQualityBadge(
+                            task.quality,
+                            task.savePath,
+                            cs,
+                            tt,
+                          ),
                         ],
                       ),
                     ),
@@ -300,7 +345,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                       _buildDetailRowWithIcon(
                         icon: Icons.high_quality_outlined,
                         label: 'Quality',
-                        value: _getQualityLabel(task.quality),
+                        value: _getQualityLabel(task.quality, task.savePath),
                         cs: cs,
                         tt: tt,
                       ),
@@ -350,13 +395,17 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                         onPressed: () async {
                           Navigator.pop(ctx);
                           if (task.savePath != null) {
-                            final result = await OpenFilex.open(task.savePath!);
-                            if (result.type != ResultType.done && mounted) {
+                            final path = task.savePath!;
+                            final opened = path.startsWith('content://')
+                                ? await ref
+                                      .read(downloadServiceProvider)
+                                      .openDownloadedFile(path)
+                                : (await OpenFilex.open(path)).type ==
+                                      ResultType.done;
+                            if (!opened && mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Could not open: ${result.message}',
-                                  ),
+                                const SnackBar(
+                                  content: Text('Could not open file'),
                                 ),
                               );
                             }
@@ -419,7 +468,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
     );
   }
 
-  String _getQualityLabel(String qualityId) {
+  String _getQualityLabel(String qualityId, String? savePath) {
+    final extension = p.extension(savePath ?? '').toLowerCase();
+    if (extension.isNotEmpty) {
+      return extension.substring(1).toUpperCase();
+    }
     switch (qualityId) {
       case '5':
         return 'MP3 (320 kbps)';
@@ -437,6 +490,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
   void _confirmDelete(DownloadTask task) {
     final cs = Theme.of(context).colorScheme;
     final db = ref.read(databaseProvider);
+    final messenger = ScaffoldMessenger.of(context);
     bool deleteFromStorage = true;
 
     showDialog(
@@ -493,34 +547,35 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
 
                   // 1. Delete from disk if requested
                   if (deleteFromStorage && task.savePath != null) {
-                    try {
-                      final file = File(task.savePath!);
-                      if (await file.exists()) {
-                        await file.delete();
-                        debugPrint('Deleted file: ${task.savePath}');
-                        await ref
-                            .read(downloadServiceProvider)
-                            .deleteEmptyDirs(task.savePath!);
-                      }
-                    } catch (e) {
-                      debugPrint('Failed to delete file on disk: $e');
+                    final deleted = await ref
+                        .read(downloadServiceProvider)
+                        .deleteDownloadedFile(task.savePath);
+                    if (!deleted) {
+                      if (!mounted) return;
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Could not delete "${task.trackTitle}" from storage. The library entry was kept.',
+                          ),
+                        ),
+                      );
+                      return;
                     }
                   }
 
                   // 2. Delete from database
                   await db.deleteTask(task.id);
 
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          deleteFromStorage
-                              ? 'Deleted "${task.trackTitle}" from library and storage'
-                              : 'Removed "${task.trackTitle}" from library',
-                        ),
+                  if (!mounted) return;
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        deleteFromStorage
+                            ? 'Deleted "${task.trackTitle}" from library and storage'
+                            : 'Removed "${task.trackTitle}" from library',
                       ),
-                    );
-                  }
+                    ),
+                  );
                 },
                 child: Text(
                   deleteFromStorage
@@ -627,31 +682,23 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
 
               // 2. Delete files from storage
               int deleteCount = 0;
+              final failedIds = <int>{};
               for (final task in selectedTasks) {
-                if (task.savePath != null) {
-                  try {
-                    final file = File(task.savePath!);
-                    if (await file.exists()) {
-                      await file.delete();
-                      deleteCount++;
-                      await ref
-                          .read(downloadServiceProvider)
-                          .deleteEmptyDirs(task.savePath!);
-                    }
-                  } catch (e) {
-                    debugPrint('Failed to delete file from disk: $e');
-                  }
+                if (await ref
+                    .read(downloadServiceProvider)
+                    .deleteDownloadedFile(task.savePath)) {
+                  deleteCount++;
+                  await db.deleteTask(task.id);
+                } else {
+                  failedIds.add(task.id);
                 }
               }
 
-              // 3. Delete database records
-              for (final id in _selectedTaskIds) {
-                await db.deleteTask(id);
-              }
-
               setState(() {
-                _selectedTaskIds.clear();
-                _isMultiSelectMode = false;
+                _selectedTaskIds
+                  ..clear()
+                  ..addAll(failedIds);
+                _isMultiSelectMode = failedIds.isNotEmpty;
               });
 
               if (mounted) {
@@ -659,7 +706,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                 messenger.showSnackBar(
                   SnackBar(
                     content: Text(
-                      'Deleted $deleteCount files from storage and cleared selected logs',
+                      failedIds.isEmpty
+                          ? 'Deleted $deleteCount files from storage and library'
+                          : 'Deleted $deleteCount files; ${failedIds.length} could not be deleted and remain in the library',
                     ),
                   ),
                 );
@@ -801,34 +850,26 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
 
                                 // 2. Delete all files from storage
                                 int deleteCount = 0;
+                                int failedCount = 0;
                                 for (final task in completedTasks) {
-                                  if (task.savePath != null) {
-                                    try {
-                                      final file = File(task.savePath!);
-                                      if (await file.exists()) {
-                                        await file.delete();
-                                        deleteCount++;
-                                        await ref
-                                            .read(downloadServiceProvider)
-                                            .deleteEmptyDirs(task.savePath!);
-                                      }
-                                    } catch (e) {
-                                      debugPrint(
-                                        'Failed to delete file from disk: $e',
-                                      );
-                                    }
+                                  if (await ref
+                                      .read(downloadServiceProvider)
+                                      .deleteDownloadedFile(task.savePath)) {
+                                    deleteCount++;
+                                    await db.deleteTask(task.id);
+                                  } else {
+                                    failedCount++;
                                   }
                                 }
-
-                                // 3. Delete from database
-                                await db.clearCompleted();
 
                                 if (mounted) {
                                   messenger.hideCurrentSnackBar();
                                   messenger.showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                        'Deleted $deleteCount files from storage and cleared library',
+                                        failedCount == 0
+                                            ? 'Deleted $deleteCount files from storage and library'
+                                            : 'Deleted $deleteCount files; $failedCount could not be deleted and remain in the library',
                                       ),
                                     ),
                                   );
@@ -877,22 +918,30 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen>
                                   ),
                                 );
 
-                                await ref
-                                    .read(downloadServiceProvider)
-                                    .resetLibraryStorage(
-                                      onStopPlayer: () {
-                                        ref
+                                try {
+                                  await ref
+                                      .read(downloadServiceProvider)
+                                      .resetLibraryStorage(
+                                        onStopPlayer: () => ref
                                             .read(audioPlayerProvider.notifier)
-                                            .stop();
-                                      },
-                                    );
-
-                                if (mounted) {
+                                            .stop(),
+                                      );
+                                  if (!mounted) return;
                                   messenger.hideCurrentSnackBar();
                                   messenger.showSnackBar(
                                     const SnackBar(
                                       content: Text(
                                         'Library storage reset successfully',
+                                      ),
+                                    ),
+                                  );
+                                } catch (e) {
+                                  if (!mounted) return;
+                                  messenger.hideCurrentSnackBar();
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Could not reset library: $e',
                                       ),
                                     ),
                                   );

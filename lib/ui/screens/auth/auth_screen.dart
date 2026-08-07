@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../widgets/glassmorphic_container.dart';
-import '../../../core/constants/api_constants.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
@@ -13,8 +12,10 @@ class AuthScreen extends ConsumerStatefulWidget {
 
 class _AuthScreenState extends ConsumerState<AuthScreen>
     with SingleTickerProviderStateMixin {
-  final _appIdController = TextEditingController(text: ApiConstants.defaultAppId);
-  final _appSecretController = TextEditingController(text: ApiConstants.defaultAppSecret);
+  final _appIdController = TextEditingController(text: '312369995');
+  final _appSecretController = TextEditingController(
+    text: 'e79f8b9be485692b0e5f9dd895826368',
+  );
   final _tokenController = TextEditingController();
 
   bool _isLoading = false;
@@ -135,6 +136,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                             style: tt.titleSmall?.copyWith(
                               color: cs.primary,
                               fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Use credentials issued for an authorized Qobuz application.',
+                            style: tt.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
                             ),
                           ),
                           const SizedBox(height: 16),

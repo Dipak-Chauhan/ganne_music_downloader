@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../secure_storage/secure_storage.dart';
 import '../../services/api/api_client.dart';
@@ -28,6 +29,6 @@ final downloadServiceProvider = Provider<DownloadService>((ref) {
   final db = ref.watch(databaseProvider);
   final secureStorage = ref.watch(secureStorageProvider);
   final service = DownloadService.instance;
-  service.initialize(db, secureStorage);
+  unawaited(service.initialize(db, secureStorage));
   return service;
 });

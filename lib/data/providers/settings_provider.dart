@@ -8,12 +8,14 @@ class AppSettings {
   final bool applyMetadata;
   final bool allowExplicit;
   final bool zipAlbums;
+  final String downloadLocation;
+  final bool customLocationUsesGanneFolder;
+  final bool flatDownloads;
   final String
   themeAccent; // 'purple', 'ocean', 'emerald', 'crimson', 'sunset', 'sakura', 'teal', 'amber', 'indigo', 'dynamic'
   final String themeMode; // 'light', 'dark', 'system'
   final bool useAmoled;
   final bool enableBlur;
-
 
   const AppSettings({
     this.outputCodec = 'flac',
@@ -21,12 +23,14 @@ class AppSettings {
     this.applyMetadata = true,
     this.allowExplicit = true,
     this.zipAlbums = false,
+    this.downloadLocation = 'music',
+    this.customLocationUsesGanneFolder = false,
+    this.flatDownloads = false,
     this.themeAccent = 'purple',
     this.themeMode = 'system',
     this.useAmoled = false,
     this.enableBlur = false,
   });
-
 
   AppSettings copyWith({
     String? outputCodec,
@@ -34,6 +38,9 @@ class AppSettings {
     bool? applyMetadata,
     bool? allowExplicit,
     bool? zipAlbums,
+    String? downloadLocation,
+    bool? customLocationUsesGanneFolder,
+    bool? flatDownloads,
     String? themeAccent,
     String? themeMode,
     bool? useAmoled,
@@ -45,6 +52,10 @@ class AppSettings {
       applyMetadata: applyMetadata ?? this.applyMetadata,
       allowExplicit: allowExplicit ?? this.allowExplicit,
       zipAlbums: zipAlbums ?? this.zipAlbums,
+      downloadLocation: downloadLocation ?? this.downloadLocation,
+      customLocationUsesGanneFolder:
+          customLocationUsesGanneFolder ?? this.customLocationUsesGanneFolder,
+      flatDownloads: flatDownloads ?? this.flatDownloads,
       themeAccent: themeAccent ?? this.themeAccent,
       themeMode: themeMode ?? this.themeMode,
       useAmoled: useAmoled ?? this.useAmoled,
@@ -80,11 +91,14 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   static const _keyMetadata = 'setting_metadata';
   static const _keyExplicit = 'setting_explicit';
   static const _keyZip = 'setting_zip';
+  static const _keyDownloadLocation = 'setting_download_location';
+  static const _keyCustomLocationUsesGanneFolder =
+      'setting_custom_location_uses_ganne_folder';
+  static const _keyFlatDownloads = 'setting_flat_downloads';
   static const _keyAccent = 'setting_accent';
   static const _keyThemeMode = 'setting_theme_mode';
   static const _keyAmoled = 'setting_amoled';
   static const _keyBlur = 'setting_blur';
-
 
   @override
   AppSettings build() {
@@ -96,12 +110,21 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     try {
       final storage = ref.read(secureStorageProvider);
       final raw = await storage.readAll();
+      final storedDownloadLocation = raw[_keyDownloadLocation];
       state = AppSettings(
         outputCodec: raw[_keyCodec] ?? 'flac',
         maxQuality: raw[_keyQuality] ?? '27',
         applyMetadata: raw[_keyMetadata] != 'false',
         allowExplicit: raw[_keyExplicit] != 'false',
         zipAlbums: raw[_keyZip] == 'true',
+        downloadLocation:
+            storedDownloadLocation == 'downloads' ||
+                storedDownloadLocation == 'custom'
+            ? storedDownloadLocation!
+            : 'music',
+        customLocationUsesGanneFolder:
+            raw[_keyCustomLocationUsesGanneFolder] == 'true',
+        flatDownloads: raw[_keyFlatDownloads] == 'true',
         themeAccent: raw[_keyAccent] ?? 'purple',
         themeMode: raw[_keyThemeMode] ?? 'system',
         useAmoled: raw[_keyAmoled] == 'true',
@@ -119,6 +142,12 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     await storage.writeKey(_keyMetadata, state.applyMetadata.toString());
     await storage.writeKey(_keyExplicit, state.allowExplicit.toString());
     await storage.writeKey(_keyZip, state.zipAlbums.toString());
+    await storage.writeKey(_keyDownloadLocation, state.downloadLocation);
+    await storage.writeKey(
+      _keyCustomLocationUsesGanneFolder,
+      state.customLocationUsesGanneFolder.toString(),
+    );
+    await storage.writeKey(_keyFlatDownloads, state.flatDownloads.toString());
     await storage.writeKey(_keyAccent, state.themeAccent);
     await storage.writeKey(_keyThemeMode, state.themeMode);
     await storage.writeKey(_keyAmoled, state.useAmoled.toString());
@@ -147,6 +176,21 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
 
   void toggleZipAlbums(bool v) {
     state = state.copyWith(zipAlbums: v);
+    _save();
+  }
+
+  void setDownloadLocation(String location) {
+    state = state.copyWith(downloadLocation: location);
+    _save();
+  }
+
+  void setCustomLocationUsesGanneFolder(bool value) {
+    state = state.copyWith(customLocationUsesGanneFolder: value);
+    _save();
+  }
+
+  void toggleFlatDownloads(bool v) {
+    state = state.copyWith(flatDownloads: v);
     _save();
   }
 

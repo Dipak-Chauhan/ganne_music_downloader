@@ -9,10 +9,10 @@ part 'database.g.dart';
 
 @DriftDatabase(tables: [DownloadTasks])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -20,10 +20,45 @@ class AppDatabase extends _$AppDatabase {
       await m.createAll();
     },
     onUpgrade: (Migrator m, int from, int to) async {
-      if (from == 1) {
-        // Drop and recreate table to avoid adding individual columns manually
-        await m.issueCustomQuery('DROP TABLE IF EXISTS download_tasks');
-        await m.createTable(downloadTasks);
+      if (from < 2) {
+        await m.addColumn(downloadTasks, downloadTasks.albumArtist);
+        await m.addColumn(downloadTasks, downloadTasks.trackVersion);
+        await m.addColumn(downloadTasks, downloadTasks.trackNumber);
+        await m.addColumn(downloadTasks, downloadTasks.year);
+        await m.addColumn(downloadTasks, downloadTasks.genre);
+      }
+      if (from < 3) {
+        await m.addColumn(downloadTasks, downloadTasks.isrc);
+        await m.addColumn(downloadTasks, downloadTasks.discNumber);
+        await m.addColumn(downloadTasks, downloadTasks.totalTracks);
+        await m.addColumn(downloadTasks, downloadTasks.totalDiscs);
+        await m.addColumn(downloadTasks, downloadTasks.durationSeconds);
+        await m.addColumn(downloadTasks, downloadTasks.copyright);
+        await m.addColumn(downloadTasks, downloadTasks.label);
+        await m.addColumn(downloadTasks, downloadTasks.barcode);
+      }
+      if (from < 4) {
+        await m.addColumn(downloadTasks, downloadTasks.catalogNumber);
+        await m.addColumn(downloadTasks, downloadTasks.releaseDate);
+        await m.addColumn(downloadTasks, downloadTasks.originalReleaseDate);
+        await m.addColumn(downloadTasks, downloadTasks.releaseCountry);
+        await m.addColumn(downloadTasks, downloadTasks.releaseStatus);
+        await m.addColumn(downloadTasks, downloadTasks.releaseType);
+        await m.addColumn(downloadTasks, downloadTasks.musicBrainzRecordingId);
+        await m.addColumn(
+          downloadTasks,
+          downloadTasks.musicBrainzReleaseTrackId,
+        );
+        await m.addColumn(downloadTasks, downloadTasks.musicBrainzReleaseId);
+        await m.addColumn(
+          downloadTasks,
+          downloadTasks.musicBrainzReleaseGroupId,
+        );
+        await m.addColumn(downloadTasks, downloadTasks.musicBrainzArtistIds);
+        await m.addColumn(
+          downloadTasks,
+          downloadTasks.musicBrainzAlbumArtistIds,
+        );
       }
     },
   );
@@ -74,6 +109,9 @@ class AppDatabase extends _$AppDatabase {
   Future<int> clearFailed() =>
       (delete(downloadTasks)..where((t) => t.status.equals('failed'))).go();
   Future<int> clearAllTasks() => delete(downloadTasks).go();
+  Future<int> requeueInterruptedTasks() =>
+      (update(downloadTasks)..where((t) => t.status.equals('downloading')))
+          .write(const DownloadTasksCompanion(status: Value('pending')));
   Future<int> archiveCompleted() =>
       (update(downloadTasks)..where((t) => t.status.equals('completed'))).write(
         const DownloadTasksCompanion(status: Value('library')),

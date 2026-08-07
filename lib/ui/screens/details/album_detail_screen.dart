@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../../data/models/qobuz_models.dart';
 import '../../../data/providers/service_providers.dart';
+import '../../../data/providers/settings_provider.dart';
 import '../../../services/download/download_service.dart';
 import '../../../core/utils/app_toast.dart';
 
@@ -20,7 +21,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
   FetchedAlbumResponse? _fetchedData;
   bool _isLoading = true;
   String? _error;
-  String _selectedQuality = '27';
+  late String _selectedQuality;
 
   Map<int, double> _downloadProgress = {};
   StreamSubscription? _progressSub;
@@ -35,6 +36,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedQuality = ref.read(appSettingsProvider).qualityId;
     _fetchAlbumDetails();
     _subscribeToProgress();
   }
@@ -83,103 +85,68 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
 
   Future<String> _queueTrack(QobuzTrack track) async {
     final service = ref.read(downloadServiceProvider);
+    final album = _fetchedData?.album ?? widget.album;
 
-    // Format complex artist string
-    final artistNames =
-        track.album?.artists?.map((a) => a.name).toList() ??
-        widget.album.artists?.map((a) => a.name).toList();
-
-    final artistString = DownloadService.joinArtists(
-      artistNames,
-      fallback: track.performer?.name ?? widget.album.artist?.name ?? 'Unknown',
+    final artistString = DownloadService.artistNameForTrack(
+      track,
+      album: album,
     );
 
-    final albumArtist = widget.album.artist?.name ?? artistString;
+    final albumArtist = album.artist?.name ?? artistString;
 
     return service.queueTrack(
       trackId: track.id,
       trackTitle: track.title,
-      albumTitle: widget.album.title,
+      albumTitle: album.title,
       artistName: artistString,
       albumArtist: albumArtist,
-      trackVersion: track.version ?? widget.album.version,
+      trackVersion: track.version ?? album.version,
+      isrc: track.isrc,
       trackNumber: track.trackNumber,
-      year: widget.album.releasedAt != null
-          ? DateTime.fromMillisecondsSinceEpoch(
-              widget.album.releasedAt! * 1000,
-            ).year
+      discNumber: track.mediaNumber,
+      totalTracks: album.tracksCount ?? _fetchedData?.tracks?.items?.length,
+      totalDiscs: album.mediaCount,
+      durationSeconds: track.duration,
+      year: album.releasedAt != null
+          ? DateTime.fromMillisecondsSinceEpoch(album.releasedAt! * 1000).year
           : null,
-      genre: widget.album.genre?.name,
-      coverUrl: widget.album.getCoverLargeUrl(),
+      genre: album.genre?.name,
+      copyright: album.copyright,
+      label: album.label,
+      barcode: album.upc,
+      coverUrl: album.getCoverLargeUrl(),
       quality: _selectedQuality,
     );
   }
 
-  void _showDownloadOptions() {
+  void _downloadAlbum() {
     if (_fetchedData?.tracks?.items == null) return;
-    final cs = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Download Album',
-                style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.album.title,
-                style: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              FilledButton.tonalIcon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _downloadAlbumIndividual();
-                },
-                icon: const Icon(Icons.queue_music),
-                label: const Text('Download individually'),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
-                ),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _downloadAlbumZip();
-                },
-                icon: const Icon(Icons.folder_zip_outlined),
-                label: const Text('Download as ZIP archive'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+    if (ref.read(appSettingsProvider).zipAlbums) {
+      _downloadAlbumZip();
+    } else {
+      _downloadAlbumIndividual();
+    }
   }
 
-  void _downloadAlbumZip() {
+  Future<void> _downloadAlbumZip() async {
     if (_fetchedData?.tracks?.items == null) return;
 
-    ref
-        .read(downloadServiceProvider)
-        .downloadAlbumAsZip(
-          album: widget.album,
-          fetchedData: _fetchedData!,
-          qualityId: _selectedQuality,
-        );
-    AppToast.info(context, 'ZIP download started for "${widget.album.title}"');
+    try {
+      final operation = ref
+          .read(downloadServiceProvider)
+          .downloadAlbumAsZip(
+            album: widget.album,
+            fetchedData: _fetchedData!,
+            qualityId: _selectedQuality,
+          );
+      AppToast.info(
+        context,
+        'ZIP download started for "${widget.album.title}"',
+      );
+      await operation;
+    } catch (e) {
+      if (mounted) AppToast.error(context, 'Failed: $e');
+    }
   }
 
   void _downloadAlbumIndividual() async {
@@ -265,7 +232,8 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                             fit: BoxFit.cover,
                             memCacheWidth: 600,
                             memCacheHeight: 600,
-                            placeholder: (context, url) => widget.album.getCoverLargeUrl().isNotEmpty
+                            placeholder: (context, url) =>
+                                widget.album.getCoverLargeUrl().isNotEmpty
                                 ? CachedNetworkImage(
                                     imageUrl: widget.album.getCoverLargeUrl(),
                                     fit: BoxFit.cover,
@@ -275,25 +243,25 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                                       color: cs.surfaceContainerHighest,
                                     ),
                                   )
-                                : Container(
-                                    color: cs.surfaceContainerHighest,
-                                  ),
-                            errorWidget: (context, url, error) => widget.album.getCoverLargeUrl().isNotEmpty
+                                : Container(color: cs.surfaceContainerHighest),
+                            errorWidget: (context, url, error) =>
+                                widget.album.getCoverLargeUrl().isNotEmpty
                                 ? CachedNetworkImage(
                                     imageUrl: widget.album.getCoverLargeUrl(),
                                     fit: BoxFit.cover,
                                     memCacheWidth: 200,
                                     memCacheHeight: 200,
-                                    errorWidget: (context2, url2, error2) => Container(
-                                      color: cs.surfaceContainerHighest,
-                                      child: Center(
-                                        child: Icon(
-                                          Icons.album,
-                                          size: 64,
-                                          color: cs.outlineVariant,
+                                    errorWidget: (context2, url2, error2) =>
+                                        Container(
+                                          color: cs.surfaceContainerHighest,
+                                          child: Center(
+                                            child: Icon(
+                                              Icons.album,
+                                              size: 64,
+                                              color: cs.outlineVariant,
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    ),
                                   )
                                 : Container(
                                     color: cs.surfaceContainerHighest,
@@ -438,7 +406,7 @@ class _AlbumDetailScreenState extends ConsumerState<AlbumDetailScreen> {
                         ),
                         const SizedBox(width: 12),
                         FilledButton.icon(
-                          onPressed: _showDownloadOptions,
+                          onPressed: _downloadAlbum,
                           icon: const Icon(Icons.download_rounded),
                           label: const Text('Download'),
                         ),

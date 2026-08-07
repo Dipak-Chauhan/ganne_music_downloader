@@ -6,9 +6,7 @@ import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/service_providers.dart';
 import '../../../data/providers/settings_provider.dart';
 import '../../../core/constants/app_constants.dart';
-import '../../../core/utils/app_toast.dart';
 import '../../../services/player/player_service.dart';
-import '../../../services/permissions/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -45,7 +43,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   leading: Icon(Icons.album, color: cs.primary),
                   title: Text(
                     AppConstants.appName,
-                    style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                    style: tt.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   subtitle: Text(
                     AppConstants.appTagline,
@@ -69,8 +69,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     ),
                   ),
                   onTap: () {
-                    final url = Uri.parse('https://github.com/Dipak-Chauhan/Ganne');
-                    launchUrl(url, mode: LaunchMode.externalApplication).catchError((_) => false);
+                    final url = Uri.parse(
+                      'https://github.com/Dipak-Chauhan/Ganne',
+                    );
+                    launchUrl(
+                      url,
+                      mode: LaunchMode.externalApplication,
+                    ).catchError((_) => false);
                   },
                 ),
                 _divider(cs),
@@ -83,7 +88,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       height: 32,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
-                        return Icon(Icons.person_outline, color: cs.onSurfaceVariant);
+                        return Icon(
+                          Icons.person_outline,
+                          color: cs.onSurfaceVariant,
+                        );
                       },
                     ),
                   ),
@@ -114,7 +122,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   ),
                   onTap: () {
                     final url = Uri.parse('https://github.com/Dipak-Chauhan');
-                    launchUrl(url, mode: LaunchMode.externalApplication).catchError((_) => false);
+                    launchUrl(
+                      url,
+                      mode: LaunchMode.externalApplication,
+                    ).catchError((_) => false);
                   },
                 ),
                 _divider(cs),
@@ -126,13 +137,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   ),
                   onTap: () {
                     final url = Uri.parse('https://ko-fi.com/V0R120YPDT');
-                    launchUrl(url, mode: LaunchMode.externalApplication).catchError((_) => false);
+                    launchUrl(
+                      url,
+                      mode: LaunchMode.externalApplication,
+                    ).catchError((_) => false);
                   },
                   trailing: Image.asset(
                     'assets/images/kofi.png',
                     height: 36,
                     errorBuilder: (context, error, stackTrace) {
-                      return Icon(Icons.open_in_new, color: cs.onSurfaceVariant);
+                      return Icon(
+                        Icons.open_in_new,
+                        color: cs.onSurfaceVariant,
+                      );
                     },
                   ),
                 ),
@@ -378,31 +395,114 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600),
                   ),
                   subtitle: Text(
-                    ref.watch(downloadServiceProvider).baseMusicDir,
+                    Platform.isAndroid
+                        ? settings.downloadLocation == 'custom'
+                              ? 'Custom folder: ${ref.watch(downloadServiceProvider).baseMusicDir}'
+                              : 'Shared ${settings.downloadLocation == 'downloads' ? 'Downloads' : 'Music'} folder: ${ref.watch(downloadServiceProvider).baseMusicDir}'
+                        : ref.watch(downloadServiceProvider).baseMusicDir,
                     style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
                   ),
                   trailing: Icon(
                     Icons.chevron_right,
                     color: cs.onSurfaceVariant,
                   ),
-                  onTap: () async {
-                    final path = await FilePicker.platform.getDirectoryPath(
-                      dialogTitle: 'Select Download Folder',
-                    );
-                    if (path != null) {
-                      ref.read(downloadServiceProvider).setDownloadPath(path);
-                      final storage = ref.read(secureStorageProvider);
-                      await storage.writeKey('download_path', path);
-                      // Force rebuild
-                      (context as Element).markNeedsBuild();
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                  onTap: Platform.isAndroid
+                      ? () => _selectAndroidDownloadLocation(settings)
+                      : () async {
+                          final path = await FilePicker.platform
+                              .getDirectoryPath(
+                                dialogTitle: 'Select Download Folder',
+                              );
+                          if (path != null) {
+                            final service = ref.read(downloadServiceProvider);
+                            await service.setDownloadPath(path);
+                            final storage = ref.read(secureStorageProvider);
+                            await storage.writeKey(
+                              'download_path',
+                              service.baseMusicDir,
+                            );
+                            if (!context.mounted) return;
+                            setState(() {});
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Download path set to: ${service.baseMusicDir}',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                ),
+                _divider(cs),
+
+                if (Platform.isAndroid &&
+                    settings.downloadLocation == 'custom') ...[
+                  SwitchListTile(
+                    secondary: Icon(
+                      Icons.create_new_folder_outlined,
+                      color: cs.onSurfaceVariant,
+                    ),
+                    title: Text(
+                      'Create a Ganne folder',
+                      style: tt.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Text(
+                      settings.customLocationUsesGanneFolder
+                          ? 'Downloads use a Ganne subfolder in the selected folder'
+                          : 'Downloads use the selected folder directly',
+                      style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    ),
+                    value: settings.customLocationUsesGanneFolder,
+                    onChanged: (value) async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      try {
+                        await ref
+                            .read(downloadServiceProvider)
+                            .setAndroidCustomLocationUsesGanneFolder(value);
+                        ref
+                            .read(appSettingsProvider.notifier)
+                            .setCustomLocationUsesGanneFolder(value);
+                        if (mounted) setState(() {});
+                      } catch (e) {
+                        if (!mounted) return;
+                        messenger.showSnackBar(
                           SnackBar(
-                            content: Text('Download path set to: $path'),
+                            content: Text('Could not update custom folder: $e'),
                           ),
                         );
                       }
-                    }
+                    },
+                  ),
+                  _divider(cs),
+                ],
+
+                SwitchListTile(
+                  secondary: Icon(
+                    Icons.folder_off_outlined,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  title: Text(
+                    Platform.isAndroid &&
+                            settings.downloadLocation == 'custom' &&
+                            !settings.customLocationUsesGanneFolder
+                        ? 'Save songs directly in selected folder'
+                        : 'Save songs directly in Ganne',
+                    style: tt.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    settings.flatDownloads
+                        ? 'Individual songs skip Artist/Album subfolders'
+                        : 'Individual songs use Artist/Album subfolders',
+                    style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  ),
+                  value: settings.flatDownloads,
+                  onChanged: (value) async {
+                    settingsNotifier.toggleFlatDownloads(value);
+                    await ref
+                        .read(downloadServiceProvider)
+                        .setFlatDownloads(value);
                   },
                 ),
                 _divider(cs),
@@ -426,66 +526,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   value: settings.zipAlbums,
                   onChanged: settingsNotifier.toggleZipAlbums,
                 ),
-                if (Platform.isAndroid) ...[
-                  _divider(cs),
-                  // Battery Optimization
-                  FutureBuilder<bool>(
-                    future: PermissionService.isBatteryOptimizationDisabled(),
-                    builder: (context, snapshot) {
-                      final isDisabled = snapshot.data ?? false;
-                      return ListTile(
-                        leading: Icon(
-                          isDisabled
-                              ? Icons.battery_std
-                              : Icons.battery_alert_rounded,
-                          color: isDisabled ? cs.primary : cs.error,
-                        ),
-                        title: Text(
-                          'Battery Optimization',
-                          style: tt.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        subtitle: Text(
-                          isDisabled
-                              ? 'Unrestricted — downloads run in background'
-                              : 'Restricted — downloads may stop in background',
-                          style: tt.bodySmall?.copyWith(
-                            color: isDisabled ? cs.onSurfaceVariant : cs.error,
-                          ),
-                        ),
-                        trailing: isDisabled
-                            ? Icon(
-                                Icons.check_circle,
-                                color: cs.primary,
-                                size: 20,
-                              )
-                            : FilledButton.tonal(
-                                onPressed: () async {
-                                  final granted =
-                                      await PermissionService.requestBatteryOptimizationExemption();
-                                  if (context.mounted) {
-                                    if (granted) {
-                                      AppToast.success(
-                                        context,
-                                        'Battery optimization disabled',
-                                      );
-                                    } else {
-                                      AppToast.warning(
-                                        context,
-                                        'Battery optimization not disabled',
-                                      );
-                                    }
-                                    // Force rebuild to update the status
-                                    (context as Element).markNeedsBuild();
-                                  }
-                                },
-                                child: const Text('Disable'),
-                              ),
-                      );
-                    },
-                  ),
-                ],
                 _divider(cs),
 
                 // Reset Library Storage
@@ -538,22 +578,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                                 ),
                               );
 
-                              await ref
-                                  .read(downloadServiceProvider)
-                                  .resetLibraryStorage(
-                                    onStopPlayer: () {
-                                      ref
+                              try {
+                                await ref
+                                    .read(downloadServiceProvider)
+                                    .resetLibraryStorage(
+                                      onStopPlayer: () => ref
                                           .read(audioPlayerProvider.notifier)
-                                          .stop();
-                                    },
-                                  );
-
-                              if (context.mounted) {
+                                          .stop(),
+                                    );
+                                if (!mounted) return;
                                 messenger.hideCurrentSnackBar();
                                 messenger.showSnackBar(
                                   const SnackBar(
                                     content: Text(
                                       'Library storage reset successfully',
+                                    ),
+                                  ),
+                                );
+                              } catch (e) {
+                                if (!mounted) return;
+                                messenger.hideCurrentSnackBar();
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Could not reset library: $e',
                                     ),
                                   ),
                                 );
@@ -629,6 +677,76 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
         ],
       ),
     );
+  }
+
+  Future<void> _selectAndroidDownloadLocation(AppSettings settings) async {
+    final location = await showModalBottomSheet<String>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(
+              title: Text('Download location'),
+              subtitle: Text('Choose a shared Android folder'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.music_note_outlined),
+              title: const Text('Music/Ganne'),
+              subtitle: const Text('Best for music library apps'),
+              trailing: settings.downloadLocation == 'music'
+                  ? const Icon(Icons.check)
+                  : null,
+              onTap: () => Navigator.pop(context, 'music'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.download_outlined),
+              title: const Text('Download/Ganne'),
+              subtitle: const Text('Easy to find in file managers'),
+              trailing: settings.downloadLocation == 'downloads'
+                  ? const Icon(Icons.check)
+                  : null,
+              onTap: () => Navigator.pop(context, 'downloads'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.create_new_folder_outlined),
+              title: const Text('Custom folder'),
+              subtitle: const Text('Save in the selected folder'),
+              trailing: settings.downloadLocation == 'custom'
+                  ? const Icon(Icons.check)
+                  : null,
+              onTap: () => Navigator.pop(context, 'custom'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (location == null ||
+        (location != 'custom' && location == settings.downloadLocation)) {
+      return;
+    }
+
+    try {
+      final service = ref.read(downloadServiceProvider);
+      if (location == 'custom') {
+        final selectedPath = await service
+            .selectAndroidCustomDownloadLocation();
+        if (selectedPath == null) return;
+      } else {
+        await service.setAndroidDownloadLocation(location);
+      }
+      ref.read(appSettingsProvider.notifier).setDownloadLocation(location);
+      if (!mounted) return;
+      setState(() {});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Download location: ${service.baseMusicDir}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not change download location: $e')),
+      );
+    }
   }
 
   Widget _buildAccentSelector(

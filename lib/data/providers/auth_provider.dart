@@ -17,15 +17,23 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<void> _checkStatus() async {
-    final storage = ref.read(secureStorageProvider);
-    final creds = await storage.getCredentials();
+    try {
+      final storage = ref.read(secureStorageProvider);
+      final creds = await storage.getCredentials();
 
-    if (creds['appId'] != null &&
-        creds['userAuthToken'] != null &&
-        creds['appSecret'] != null) {
-      state = AuthState(isAuthenticated: true, isLoading: false);
-    } else {
-      state = AuthState(isAuthenticated: false, isLoading: false);
+      if ((creds['appId']?.isNotEmpty ?? false) &&
+          (creds['userAuthToken']?.isNotEmpty ?? false) &&
+          (creds['appSecret']?.isNotEmpty ?? false)) {
+        state = AuthState(isAuthenticated: true, isLoading: false);
+      } else {
+        state = AuthState(isAuthenticated: false, isLoading: false);
+      }
+    } catch (e) {
+      state = AuthState(
+        isAuthenticated: false,
+        isLoading: false,
+        error: 'Unable to access saved credentials: $e',
+      );
     }
   }
 

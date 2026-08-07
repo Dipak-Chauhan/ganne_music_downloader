@@ -1,4 +1,5 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
+// ignore_for_file: unused_element
 
 part of 'qobuz_models.dart';
 
@@ -9,28 +10,31 @@ part of 'qobuz_models.dart';
 QobuzArtist _$QobuzArtistFromJson(Map<String, dynamic> json) => QobuzArtist(
   (json['id'] as num).toInt(),
   json['name'] as String,
-  json['image'] as String?,
+  QobuzArtist._imageUrlFromJson(json['image']),
   (json['albums_count'] as num?)?.toInt(),
 );
 
 QobuzImage _$QobuzImageFromJson(Map<String, dynamic> json) => QobuzImage(
-  json['small'] as String?,
-  json['thumbnail'] as String?,
-  json['large'] as String?,
-  json['back'] as String?,
+  _nullableStringFromJson(json['small']),
+  _nullableStringFromJson(json['thumbnail']),
+  _nullableStringFromJson(json['large']),
+  _nullableStringFromJson(json['back']),
 );
 
 QobuzGenre _$QobuzGenreFromJson(Map<String, dynamic> json) =>
     QobuzGenre((json['id'] as num).toInt(), json['name'] as String);
 
 QobuzAlbum _$QobuzAlbumFromJson(Map<String, dynamic> json) => QobuzAlbum(
-  json['id'] as String?,
+  _nullableStringFromJson(json['id']),
   (json['qobuz_id'] as num?)?.toInt(),
   json['title'] as String,
-  json['version'] as String?,
+  _nullableStringFromJson(json['version']),
   json['genre'] == null
       ? null
       : QobuzGenre.fromJson(json['genre'] as Map<String, dynamic>),
+  _nullableStringFromJson(json['upc']),
+  QobuzAlbum._labelNameFromJson(json['label']),
+  _nullableStringFromJson(json['copyright']),
   json['artist'] == null
       ? null
       : QobuzArtist.fromJson(json['artist'] as Map<String, dynamic>),
@@ -45,6 +49,7 @@ QobuzAlbum _$QobuzAlbumFromJson(Map<String, dynamic> json) => QobuzAlbum(
   (json['released_at'] as num?)?.toInt(),
   (json['duration'] as num?)?.toInt(),
   (json['tracks_count'] as num?)?.toInt(),
+  (json['media_count'] as num?)?.toInt(),
   json['hires'] as bool?,
   json['streamable'] as bool?,
   json['parental_warning'] as bool?,
@@ -53,7 +58,8 @@ QobuzAlbum _$QobuzAlbumFromJson(Map<String, dynamic> json) => QobuzAlbum(
 QobuzTrack _$QobuzTrackFromJson(Map<String, dynamic> json) => QobuzTrack(
   (json['id'] as num).toInt(),
   json['title'] as String,
-  json['version'] as String?,
+  _nullableStringFromJson(json['version']),
+  _nullableStringFromJson(json['isrc']),
   (json['duration'] as num?)?.toInt(),
   (json['track_number'] as num?)?.toInt(),
   (json['media_number'] as num?)?.toInt(),
@@ -97,15 +103,4 @@ TracksResult _$TracksResultFromJson(Map<String, dynamic> json) => TracksResult(
   (json['items'] as List<dynamic>?)
       ?.map((e) => QobuzTrack.fromJson(e as Map<String, dynamic>))
       .toList(),
-);
-
-FetchedAlbumResponse _$FetchedAlbumResponseFromJson(
-  Map<String, dynamic> json,
-) => FetchedAlbumResponse(
-  json['album'] == null
-      ? null
-      : QobuzAlbum.fromJson(json['album'] as Map<String, dynamic>),
-  json['tracks'] == null
-      ? null
-      : TracksResult.fromJson(json['tracks'] as Map<String, dynamic>),
 );

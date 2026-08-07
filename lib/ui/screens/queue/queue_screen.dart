@@ -404,9 +404,9 @@ class _QueueItemCardState extends ConsumerState<_QueueItemCard> {
       ),
       onDismissed: (_) {
         if (task.status == 'completed') {
-          db.archiveTask(task.id);
+          unawaited(db.archiveTask(task.id));
         } else {
-          db.deleteTask(task.id);
+          unawaited(ref.read(downloadServiceProvider).removeTask(task));
         }
       },
       child: Card(
