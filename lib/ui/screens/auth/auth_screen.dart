@@ -140,7 +140,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Use credentials issued for an authorized Qobuz application.',
+                            'Use credentials issued for an authorized Ganne application.',
                             style: tt.bodySmall?.copyWith(
                               color: cs.onSurfaceVariant,
                             ),

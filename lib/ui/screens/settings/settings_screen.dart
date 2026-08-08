@@ -646,7 +646,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     icon: Icon(Icons.logout_rounded, color: cs.error),
                     title: const Text('Logout'),
                     content: const Text(
-                      'Are you sure? You will need to re-enter your Qobuz API credentials.',
+                      'Are you sure? You will need to re-enter your Ganne API credentials.',
                     ),
                     actions: [
                       TextButton(
