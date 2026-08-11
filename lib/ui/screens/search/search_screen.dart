@@ -25,12 +25,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   SearchResults? _suggestions;
   bool _isLoading = false;
   bool _isLoadingMore = false;
-  bool _showSuggestions = false;
   String? _error;
   String _searchField = 'albums';
   final ScrollController _scrollController = ScrollController();
   Timer? _debounce;
-  final GlobalKey _searchBarKey = GlobalKey();
+  final MenuController _suggestionsMenuController = MenuController();
 
   late final AnimationController _logoController;
   late final Animation<double> _logoScale;
@@ -38,7 +37,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   List<String> _searchHistory = [];
   final bool _hiResOnly = false;
   String _searchSortOrder = 'default';
-  bool _showSortMenu = false;
   int _albumNextOffset = 0;
   int _trackNextOffset = 0;
   int _searchRequestId = 0;
@@ -66,10 +64,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     _scrollController.addListener(_onScroll);
     _searchController.addListener(_onSearchChanged);
     _searchFocus.addListener(() {
-      if (!_searchFocus.hasFocus && _showSuggestions) {
+      if (!_searchFocus.hasFocus && _suggestionsMenuController.isOpen) {
         Future.delayed(const Duration(milliseconds: 250), () {
           if (mounted && !_searchFocus.hasFocus) {
-            setState(() => _showSuggestions = false);
+            _suggestionsMenuController.close();
           }
         });
       }
@@ -132,8 +130,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       _debounce?.cancel();
       setState(() {
         _suggestions = null;
-        _showSuggestions = false;
       });
+      _suggestionsMenuController.close();
       return;
     }
     _debounce?.cancel();
@@ -148,21 +146,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           .read(qobuzServiceProvider)
           .search(query, limit: 5);
       if (mounted && _searchController.text.trim() == query) {
-        setState(() {
-          _suggestions = results;
-          _showSuggestions = true;
+        setState(() => _suggestions = results);
+        final hasSuggestions =
+            results.albums?.items?.isNotEmpty == true ||
+            results.tracks?.items?.isNotEmpty == true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted &&
+              hasSuggestions &&
+              _searchController.text.trim() == query) {
+            _suggestionsMenuController.open();
+          }
         });
       }
     } catch (_) {}
   }
 
   void _onScroll() {
-    if (_showSuggestions) {
-      setState(() => _showSuggestions = false);
-    }
-    if (_showSortMenu) {
-      setState(() => _showSortMenu = false);
-    }
+    _suggestionsMenuController.close();
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 300) {
       _loadMore();
@@ -184,10 +184,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       _isLoading = true;
       _isLoadingMore = false;
       _error = null;
-      _showSuggestions = false;
       _albumNextOffset = 0;
       _trackNextOffset = 0;
     });
+    _suggestionsMenuController.close();
     _searchFocus.unfocus();
     try {
       final settings = ref.read(appSettingsProvider);
@@ -351,13 +351,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       _suggestions = null;
       _error = null;
       _searchField = 'albums';
-      _showSuggestions = false;
       _albumNextOffset = 0;
       _trackNextOffset = 0;
       _activeQuery = '';
       _isLoading = false;
       _isLoadingMore = false;
     });
+    _suggestionsMenuController.close();
   }
 
   String _formatDuration(int? s) {
@@ -538,15 +538,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     }
   }
 
-  // Calculate suggestion overlay position from SearchBar key
-  double get _suggestionsTop {
-    final renderBox =
-        _searchBarKey.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null) return 170;
-    final pos = renderBox.localToGlobal(Offset.zero);
-    return pos.dy + renderBox.size.height + 4;
-  }
-
   @override
   Widget build(BuildContext context) {
     super.build(context); // AutomaticKeepAliveClientMixin
@@ -558,50 +549,45 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     final error = hasVisibleQuery ? _error : null;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Listener(
-      onPointerDown: (_) {
-        if (_showSuggestions) setState(() => _showSuggestions = false);
-        if (_showSortMenu) setState(() => _showSortMenu = false);
-        _searchFocus.unfocus();
-      },
-      child: SafeArea(
-        child: Stack(
-          children: [
-            CustomScrollView(
-              controller: _scrollController,
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
-                    child: GestureDetector(
-                      onTap: _resetSearch,
-                      child: ScaleTransition(
-                        scale: _logoScale,
-                        child: Image.asset(
-                          isDark
-                              ? 'assets/images/ganne_logo_dark.png'
-                              : 'assets/images/ganne_logo_light.png',
-                          height: 60,
-                          fit: BoxFit.contain,
-                        ),
+    return SafeArea(
+      child: Stack(
+        children: [
+          CustomScrollView(
+            controller: _scrollController,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
+                  child: GestureDetector(
+                    onTap: _resetSearch,
+                    child: ScaleTransition(
+                      scale: _logoScale,
+                      child: Image.asset(
+                        isDark
+                            ? 'assets/images/ganne_logo_dark.png'
+                            : 'assets/images/ganne_logo_light.png',
+                        height: 60,
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ),
                 ),
+              ),
 
-                SliverToBoxAdapter(
-                  child: Padding(
-                    key: _searchBarKey,
-                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-                    child: SearchBar(
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                  child: MenuAnchor(
+                    controller: _suggestionsMenuController,
+                    alignmentOffset: const Offset(0, 4),
+                    menuChildren: [_buildSuggestionsMenu(cs, tt)],
+                    builder: (context, controller, child) => SearchBar(
                       controller: _searchController,
                       focusNode: _searchFocus,
                       onSubmitted: _onSearch,
                       onTap: () {
-                        if (_suggestions != null) {
-                          setState(() => _showSuggestions = true);
-                        }
+                        if (_suggestions != null) controller.open();
                       },
                       hintText: 'Search albums, tracks...',
                       leading: Padding(
@@ -618,473 +604,420 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                     ),
                   ),
                 ),
+              ),
 
-                if (hasResults || isLoading)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          FilterChip(
-                            selected: _searchField == 'albums',
+              if (hasResults || isLoading)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        FilterChip(
+                          selected: _searchField == 'albums',
+                          avatar: Icon(
+                            _searchField == 'albums'
+                                ? Icons.album
+                                : Icons.album_outlined,
+                            size: 18,
+                          ),
+                          label: const Text('Albums'),
+                          onSelected: (_) {
+                            _suggestionsMenuController.close();
+                            setState(() => _searchField = 'albums');
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        FilterChip(
+                          selected: _searchField == 'tracks',
+                          avatar: Icon(
+                            _searchField == 'tracks'
+                                ? Icons.music_note
+                                : Icons.music_note_outlined,
+                            size: 18,
+                          ),
+                          label: const Text('Tracks'),
+                          onSelected: (_) {
+                            _suggestionsMenuController.close();
+                            setState(() => _searchField = 'tracks');
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        PopupMenuButton<String>(
+                          tooltip: 'Sort results',
+                          padding: EdgeInsets.zero,
+                          offset: const Offset(0, 8),
+                          onSelected: (value) {
+                            setState(() => _searchSortOrder = value);
+                          },
+                          itemBuilder: (context) => [
+                            _buildSortMenuItem(
+                              icon: Icons.sort_rounded,
+                              title: 'Default Order',
+                              value: 'default',
+                              cs: cs,
+                              tt: tt,
+                            ),
+                            _buildSortMenuItem(
+                              icon: Icons.title_rounded,
+                              title: 'Sort by Name',
+                              value: 'title',
+                              cs: cs,
+                              tt: tt,
+                            ),
+                            _buildSortMenuItem(
+                              icon: Icons.calendar_today_rounded,
+                              title: 'Sort by Newest',
+                              value: 'newest',
+                              cs: cs,
+                              tt: tt,
+                            ),
+                            _buildSortMenuItem(
+                              icon: Icons.history_rounded,
+                              title: 'Sort by Oldest',
+                              value: 'oldest',
+                              cs: cs,
+                              tt: tt,
+                            ),
+                          ],
+                          child: Chip(
                             avatar: Icon(
-                              _searchField == 'albums'
-                                  ? Icons.album
-                                  : Icons.album_outlined,
-                              size: 18,
+                              _searchSortOrder == 'default'
+                                  ? Icons.sort
+                                  : Icons.filter_list,
+                              size: 16,
                             ),
-                            label: const Text('Albums'),
-                            onSelected: (_) {
-                              if (_showSuggestions) {
-                                setState(() => _showSuggestions = false);
-                              }
-                              setState(() => _searchField = 'albums');
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          FilterChip(
-                            selected: _searchField == 'tracks',
-                            avatar: Icon(
-                              _searchField == 'tracks'
-                                  ? Icons.music_note
-                                  : Icons.music_note_outlined,
-                              size: 18,
-                            ),
-                            label: const Text('Tracks'),
-                            onSelected: (_) {
-                              if (_showSuggestions) {
-                                setState(() => _showSuggestions = false);
-                              }
-                              setState(() => _searchField = 'tracks');
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: () {
-                              if (_showSuggestions) {
-                                setState(() => _showSuggestions = false);
-                              }
-                              setState(() => _showSortMenu = !_showSortMenu);
-                            },
-                            child: Chip(
-                              avatar: Icon(
-                                _searchSortOrder == 'default'
-                                    ? Icons.sort
-                                    : Icons.filter_list,
-                                size: 16,
-                                color: _showSortMenu ? cs.primary : null,
-                              ),
-                              label: Text(
-                                _searchSortOrder == 'default'
-                                    ? 'Sort'
-                                    : _searchSortOrder == 'title'
-                                    ? 'By Name'
-                                    : _searchSortOrder == 'newest'
-                                    ? 'By Newest'
-                                    : 'By Oldest',
-                                style: TextStyle(
-                                  color: _showSortMenu ? cs.primary : null,
-                                  fontWeight: _showSortMenu
-                                      ? FontWeight.w600
-                                      : null,
-                                ),
-                              ),
-                              backgroundColor: _showSortMenu
-                                  ? cs.primaryContainer.withAlpha(100)
-                                  : null,
-                              side: BorderSide(
-                                color: _showSortMenu
-                                    ? cs.primary.withAlpha(120)
-                                    : cs.outlineVariant.withAlpha(80),
+                            label: Text(
+                              _searchSortOrder == 'default'
+                                  ? 'Sort'
+                                  : _searchSortOrder == 'title'
+                                  ? 'By Name'
+                                  : _searchSortOrder == 'newest'
+                                  ? 'By Newest'
+                                  : 'By Oldest',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
+                            side: BorderSide(
+                              color: _searchSortOrder == 'default'
+                                  ? cs.outlineVariant.withAlpha(80)
+                                  : cs.primary.withAlpha(120),
+                            ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
+                ),
 
-                if (isLoading)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
+              if (isLoading)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                )
+              else if (error != null)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.error_outline, size: 48, color: cs.error),
+                        const SizedBox(height: 12),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 32),
+                          child: Text(
+                            error,
+                            textAlign: TextAlign.center,
+                            style: tt.bodyMedium?.copyWith(color: cs.error),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else if (!hasResults)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.search, size: 64, color: cs.outlineVariant),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Search for music to get started',
+                          style: tt.bodyLarge?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                        if (_searchHistory.isNotEmpty) ...[
+                          const SizedBox(height: 32),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Recent Searches',
+                                style: tt.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _searchHistory.clear();
+                                  });
+                                  ref
+                                      .read(secureStorageProvider)
+                                      .writeKey('search_history', '');
+                                },
+                                child: const Text('Clear All'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.center,
+                            children: _searchHistory
+                                .map(
+                                  (item) => InputChip(
+                                    label: Text(item),
+                                    onPressed: () {
+                                      _searchController.text = item;
+                                      _onSearch(item);
+                                    },
+                                    onDeleted: () => _removeFromHistory(item),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                )
+              else if (_searchField == 'albums')
+                _buildAlbumsGrid(cs, tt)
+              else
+                _buildTracksList(cs, tt),
+
+              if (hasVisibleQuery && _isLoadingMore)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
                     child: Center(
                       child: SizedBox(
-                        width: 48,
-                        height: 48,
+                        width: 32,
+                        height: 32,
                         child: CircularProgressIndicator(),
                       ),
                     ),
-                  )
-                else if (error != null)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.error_outline, size: 48, color: cs.error),
-                          const SizedBox(height: 12),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 32),
-                            child: Text(
-                              error,
-                              textAlign: TextAlign.center,
-                              style: tt.bodyMedium?.copyWith(color: cs.error),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else if (!hasResults)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 16,
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.search,
-                            size: 64,
-                            color: cs.outlineVariant,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Search for music to get started',
-                            style: tt.bodyLarge?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
-                          ),
-                          if (_searchHistory.isNotEmpty) ...[
-                            const SizedBox(height: 32),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Recent Searches',
-                                  style: tt.labelLarge?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      _searchHistory.clear();
-                                    });
-                                    ref
-                                        .read(secureStorageProvider)
-                                        .writeKey('search_history', '');
-                                  },
-                                  child: const Text('Clear All'),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              alignment: WrapAlignment.center,
-                              children: _searchHistory
-                                  .map(
-                                    (item) => InputChip(
-                                      label: Text(item),
-                                      onPressed: () {
-                                        _searchController.text = item;
-                                        _onSearch(item);
-                                      },
-                                      onDeleted: () => _removeFromHistory(item),
-                                    ),
-                                  )
-                                  .toList(),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  )
-                else if (_searchField == 'albums')
-                  _buildAlbumsGrid(cs, tt)
-                else
-                  _buildTracksList(cs, tt),
-
-                if (hasVisibleQuery && _isLoadingMore)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Center(
-                        child: SizedBox(
-                          width: 32,
-                          height: 32,
-                          child: CircularProgressIndicator(),
-                        ),
-                      ),
-                    ),
                   ),
-              ],
-            ),
-
-            if (_showSuggestions && _suggestions != null)
-              _buildSuggestionsOverlay(cs, tt),
-
-            if (hasVisibleQuery && _showSortMenu) _buildSortMenuOverlay(cs, tt),
-          ],
-        ),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildSuggestionsOverlay(ColorScheme cs, TextTheme tt) {
+  Widget _buildSuggestionsMenu(ColorScheme cs, TextTheme tt) {
     final albums = _suggestions?.albums?.items ?? [];
     final tracks = _suggestions?.tracks?.items ?? [];
     if (albums.isEmpty && tracks.isEmpty) return const SizedBox.shrink();
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Positioned(
-      top: _suggestionsTop,
-      left: 16,
-      right: 16,
-      child: GestureDetector(
-        onTap: () {}, // Prevent tap propagation
-        child: GlassmorphicContainer(
-          borderRadius: 16,
-          blur: 25.0,
-          color: isDark ? cs.surface.withAlpha(140) : cs.surface.withAlpha(200),
-          borderColor: cs.primary.withAlpha(35),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.bolt, size: 16, color: cs.primary),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Quick Results',
-                    style: tt.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Albums column
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Albums',
-                          style: tt.labelMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: cs.primary,
-                          ),
+    return SizedBox(
+      width: MediaQuery.sizeOf(context).width - 32,
+      child: GlassmorphicContainer(
+        borderRadius: 16,
+        blur: 25.0,
+        color: isDark ? cs.surface.withAlpha(140) : cs.surface.withAlpha(200),
+        borderColor: cs.primary.withAlpha(35),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.bolt, size: 16, color: cs.primary),
+                const SizedBox(width: 6),
+                Text(
+                  'Quick Results',
+                  style: tt.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Albums column
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Albums',
+                        style: tt.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: cs.primary,
                         ),
-                        const SizedBox(height: 6),
-                        ...albums
-                            .take(5)
-                            .map(
-                              (album) => InkWell(
-                                borderRadius: BorderRadius.circular(8),
-                                onTap: () {
-                                  setState(() => _showSuggestions = false);
-                                  _searchFocus.unfocus();
-                                  Navigator.of(context).push(
-                                    PageRouteBuilder(
-                                      pageBuilder:
-                                          (
-                                            context,
-                                            animation,
-                                            secondaryAnimation,
-                                          ) => AlbumDetailScreen(album: album),
-                                      transitionsBuilder:
-                                          (
-                                            context,
-                                            animation,
-                                            secondaryAnimation,
-                                            child,
-                                          ) {
-                                            final slideTween =
-                                                Tween<Offset>(
-                                                  begin: const Offset(
-                                                    0.0,
-                                                    0.08,
-                                                  ),
-                                                  end: Offset.zero,
-                                                ).chain(
-                                                  CurveTween(
-                                                    curve: Curves.easeOutCubic,
-                                                  ),
-                                                );
-                                            final fadeTween =
-                                                Tween<double>(
-                                                  begin: 0.0,
-                                                  end: 1.0,
-                                                ).chain(
-                                                  CurveTween(
-                                                    curve: Curves.easeOut,
-                                                  ),
-                                                );
-                                            return SlideTransition(
-                                              position: animation.drive(
-                                                slideTween,
-                                              ),
-                                              child: FadeTransition(
-                                                opacity: animation.drive(
-                                                  fadeTween,
+                      ),
+                      const SizedBox(height: 6),
+                      ...albums
+                          .take(5)
+                          .map(
+                            (album) => InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: () {
+                                _suggestionsMenuController.close();
+                                _searchFocus.unfocus();
+                                Navigator.of(context).push(
+                                  PageRouteBuilder(
+                                    pageBuilder:
+                                        (
+                                          context,
+                                          animation,
+                                          secondaryAnimation,
+                                        ) => AlbumDetailScreen(album: album),
+                                    transitionsBuilder:
+                                        (
+                                          context,
+                                          animation,
+                                          secondaryAnimation,
+                                          child,
+                                        ) {
+                                          final slideTween =
+                                              Tween<Offset>(
+                                                begin: const Offset(0.0, 0.08),
+                                                end: Offset.zero,
+                                              ).chain(
+                                                CurveTween(
+                                                  curve: Curves.easeOutCubic,
                                                 ),
-                                                child: child,
+                                              );
+                                          final fadeTween =
+                                              Tween<double>(
+                                                begin: 0.0,
+                                                end: 1.0,
+                                              ).chain(
+                                                CurveTween(
+                                                  curve: Curves.easeOut,
+                                                ),
+                                              );
+                                          return SlideTransition(
+                                            position: animation.drive(
+                                              slideTween,
+                                            ),
+                                            child: FadeTransition(
+                                              opacity: animation.drive(
+                                                fadeTween,
                                               ),
-                                            );
-                                          },
-                                      transitionDuration: const Duration(
-                                        milliseconds: 350,
-                                      ),
+                                              child: child,
+                                            ),
+                                          );
+                                        },
+                                    transitionDuration: const Duration(
+                                      milliseconds: 350,
                                     ),
-                                  );
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 5,
-                                    horizontal: 4,
                                   ),
-                                  child: Text(
-                                    album.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: tt.bodySmall?.copyWith(
-                                      color: cs.onSurface,
-                                    ),
+                                );
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 5,
+                                  horizontal: 4,
+                                ),
+                                child: Text(
+                                  album.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: tt.bodySmall?.copyWith(
+                                    color: cs.onSurface,
                                   ),
                                 ),
                               ),
                             ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    width: 1,
-                    height: 100,
-                    color: cs.outlineVariant.withAlpha(80),
-                  ),
-                  const SizedBox(width: 12),
-                  // Tracks column
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Tracks',
-                          style: tt.labelMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: cs.tertiary,
                           ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 1,
+                  height: 100,
+                  color: cs.outlineVariant.withAlpha(80),
+                ),
+                const SizedBox(width: 12),
+                // Tracks column
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Tracks',
+                        style: tt.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: cs.tertiary,
                         ),
-                        const SizedBox(height: 6),
-                        ...tracks
-                            .take(5)
-                            .map(
-                              (track) => InkWell(
-                                borderRadius: BorderRadius.circular(8),
-                                onTap: () {
-                                  setState(() => _showSuggestions = false);
-                                  _searchFocus.unfocus();
-                                  _downloadTrack(track);
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 5,
-                                    horizontal: 4,
-                                  ),
-                                  child: Text(
-                                    track.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: tt.bodySmall?.copyWith(
-                                      color: cs.onSurface,
-                                    ),
+                      ),
+                      const SizedBox(height: 6),
+                      ...tracks
+                          .take(5)
+                          .map(
+                            (track) => InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: () {
+                                _suggestionsMenuController.close();
+                                _searchFocus.unfocus();
+                                _downloadTrack(track);
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 5,
+                                  horizontal: 4,
+                                ),
+                                child: Text(
+                                  track.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: tt.bodySmall?.copyWith(
+                                    color: cs.onSurface,
                                   ),
                                 ),
                               ),
                             ),
-                      ],
-                    ),
+                          ),
+                    ],
                   ),
-                ],
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildSortMenuOverlay(ColorScheme cs, TextTheme tt) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Positioned(
-      top: _suggestionsTop + 44, // Positioned exactly below the filter row
-      left: MediaQuery.of(context).size.width * 0.15,
-      right: MediaQuery.of(context).size.width * 0.15,
-      child: GestureDetector(
-        onTap: () {}, // Prevent tap propagation
-        child: GlassmorphicContainer(
-          borderRadius: 16,
-          blur: 25.0,
-          color: isDark ? cs.surface.withAlpha(140) : cs.surface.withAlpha(200),
-          borderColor: cs.primary.withAlpha(35),
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildSortMenuItem(
-                icon: Icons.sort_rounded,
-                title: 'Default Order',
-                value: 'default',
-                cs: cs,
-                tt: tt,
-              ),
-              _buildSortMenuItem(
-                icon: Icons.title_rounded,
-                title: 'Sort by Name',
-                value: 'title',
-                cs: cs,
-                tt: tt,
-              ),
-              _buildSortMenuItem(
-                icon: Icons.calendar_today_rounded,
-                title: 'Sort by Newest',
-                value: 'newest',
-                cs: cs,
-                tt: tt,
-              ),
-              _buildSortMenuItem(
-                icon: Icons.history_rounded,
-                title: 'Sort by Oldest',
-                value: 'oldest',
-                cs: cs,
-                tt: tt,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSortMenuItem({
+  PopupMenuItem<String> _buildSortMenuItem({
     required IconData icon,
     required String title,
     required String value,
@@ -1092,15 +1025,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     required TextTheme tt,
   }) {
     final isSelected = _searchSortOrder == value;
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _searchSortOrder = value;
-          _showSortMenu = false;
-        });
-      },
+    return PopupMenuItem<String>(
+      value: value,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: [
             Icon(

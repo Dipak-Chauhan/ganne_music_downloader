@@ -56,6 +56,17 @@ void main() {
     expect(find.text('Search Result Album'), findsNothing);
   });
 
+  testWidgets('opens suggestions anchored to the search field', (tester) async {
+    await pumpSearchScreen(tester);
+
+    await tester.enterText(find.byType(EditableText), 'query');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Quick Results'), findsOneWidget);
+    expect(find.text('Search Result Album'), findsOneWidget);
+  });
+
   testWidgets('sorts tracks by title without case sensitivity', (tester) async {
     await pumpSearchScreen(tester);
 
@@ -67,7 +78,7 @@ void main() {
     await tester.tap(find.text('Tracks'));
     await tester.pump();
     await tester.tap(find.text('Sort'));
-    await tester.pump();
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Sort by Name'));
     await tester.pump();
 
@@ -90,7 +101,7 @@ void main() {
     await tester.tap(find.text('Tracks'));
     await tester.pump();
     await tester.tap(find.text('Sort'));
-    await tester.pump();
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Sort by Newest'));
     await tester.pump();
 

@@ -421,10 +421,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final totalWidth = recent.length * 152.0 - 12.0;
+        final totalWidth = recent.length * 172.0;
         final fits = constraints.maxWidth >= totalWidth;
         return SizedBox(
-          height: 180,
+          height: 232,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             physics: fits ? const NeverScrollableScrollPhysics() : null,
@@ -433,15 +433,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             itemBuilder: (context, index) {
               final task = recent[index];
               return Container(
-                width: 140,
+                width: 160,
                 margin: EdgeInsets.only(right: 12, left: index == 0 ? 0 : 0),
                 child: GlassmorphicContainer(
-                  borderRadius: 16,
+                  borderRadius: 20,
                   blur: 0,
                   padding: EdgeInsets.zero,
                   margin: EdgeInsets.zero,
-                  color: Colors.black.withAlpha(30),
+                  color: cs.surfaceContainerLow,
+                  borderColor: cs.outlineVariant.withAlpha(80),
                   child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
                     onTap: () {
                       // Navigate to Library/details sheet or play in-app
                       ref
@@ -449,96 +451,125 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                           .playTrack(task, allCompleted);
                       AppToast.success(context, 'Playing "${task.trackTitle}"');
                     },
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        // Cover Art Image
-                        task.coverUrl.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: task.coverUrl,
-                                fit: BoxFit.cover,
-                                memCacheWidth: 280, // Optimized cache size
-                                memCacheHeight: 280,
-                                placeholder: (_, a) => Container(
-                                  color: cs.surfaceContainerHighest,
-                                ),
-                                errorWidget: (_, a, b) => Container(
-                                  color: cs.surfaceContainerHighest,
-                                  child: Icon(
-                                    Icons.music_note,
-                                    color: cs.onSurfaceVariant,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(6, 6, 6, 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          AspectRatio(
+                            aspectRatio: 1,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(15),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  task.coverUrl.isNotEmpty
+                                      ? CachedNetworkImage(
+                                          imageUrl: task.coverUrl,
+                                          fit: BoxFit.cover,
+                                          memCacheWidth: 296,
+                                          memCacheHeight: 296,
+                                          placeholder: (_, _) => Container(
+                                            color: cs.surfaceContainerHighest,
+                                          ),
+                                          errorWidget: (_, _, _) =>
+                                              Container(
+                                                color:
+                                                    cs.surfaceContainerHighest,
+                                                alignment: Alignment.center,
+                                                child: Icon(
+                                                  Icons.album_rounded,
+                                                  color: cs.onSurfaceVariant,
+                                                ),
+                                              ),
+                                        )
+                                      : Container(
+                                          color: cs.surfaceContainerHighest,
+                                          alignment: Alignment.center,
+                                          child: Icon(
+                                            Icons.album_rounded,
+                                            color: cs.onSurfaceVariant,
+                                          ),
+                                        ),
+                                  Positioned(
+                                    top: 8,
+                                    left: 8,
+                                    child: Container(
+                                      width: 30,
+                                      height: 30,
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withAlpha(135),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.download_done_rounded,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              )
-                            : Container(
-                                color: cs.surfaceContainerHighest,
-                                child: Icon(
-                                  Icons.music_note,
-                                  color: cs.onSurfaceVariant,
-                                ),
-                              ),
-                        // Bottom gradient overlay
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.transparent,
-                                  Colors.black.withAlpha(220),
+                                  Positioned(
+                                    right: 8,
+                                    bottom: 8,
+                                    child: Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: cs.primary,
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withAlpha(80),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 3),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Icon(
+                                        Icons.play_arrow_rounded,
+                                        color: cs.onPrimary,
+                                        size: 25,
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  task.trackTitle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: tt.labelMedium?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 1),
-                                Text(
-                                  task.artistName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: tt.bodySmall?.copyWith(
-                                    color: Colors.white70,
-                                  ),
-                                ),
-                              ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            task.albumTitle.isEmpty
+                                ? task.trackTitle
+                                : task.albumTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: tt.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
-                        ),
-                        // Quick Play Floating Circle Tonal Button
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: Container(
-                            height: 36,
-                            width: 36,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: cs.primaryContainer.withAlpha(220),
-                            ),
-                            child: Icon(
-                              Icons.play_arrow_rounded,
-                              color: cs.onPrimaryContainer,
-                              size: 22,
+                          const SizedBox(height: 2),
+                          Text(
+                            task.artistName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: tt.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 3),
+                          Text(
+                            task.trackNumber == null
+                                ? task.trackTitle
+                                : 'Track ${task.trackNumber}: ${task.trackTitle}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: tt.labelSmall?.copyWith(
+                              color: cs.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
